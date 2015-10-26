@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Cropper Examples</title>
+	<script src="../base/base.js"></script>
+	<script src="../lib/cropper.js"></script>
+
+  <link rel="stylesheet" type="text/css" href="../assets/cropper.css" />
+</head>
+
+<body>
+
+
+
+	<div class="cropper" style="width:800px;">
+
+		<div class="viewport" style="width:800px;height:400px;background-color:#000">
+			<img class="content" src="http://media.cmcdn.net/3315168/750x947.jpeg" style="width:740px;height:947px;" data-height="947" data-width="750" />
+		</div>
+
+		<span class="zoomer">
+			<span class="track"></span>
+			<span class="nub" style="width:50px;display:inline-block;background-color:red;">x</span>
+		</span>
+	</div>
+
+
+	<div style="height:100px;"></div>
+
+  <input id="transform" value="789x525/crop:273-191_240x140" />
+
+  <input type="submit" value="set" onclick="cropper1.setTransform($('#transform').val());" />
+
+	<p id="debug">DEBUG</p>
+
+
+<div id="wrapper">
+
+
+
+
+	<img id="preview" src="http://media.cmcdn.net/13367932/240x140-c.jpeg" />
+
+	<div id="cropper1" class="cropper" style="background-color:#000;width:240px;height:140px;">
+
+		<div class="viewport">
+  		<img src="http://media.cmcdn.net/13367932.jpeg" class="content" data-width="905" data-height="603" style="width: 678px; height: 452px; ">
+		</div>
+
+		<span class="zoomer">
+			<span class="track"></span>
+			<span class="nub">x</span>
+		</span>
+
+		<span class="get">get</span>
+	</div>
+
+	<br clear="both" />
+
+	<hr />
+
+	<div class="cropper" style="width:500px;">
+
+		<div class="viewport" style="width:500px;height:500px;background-color:#000">
+			<img class="content" src="http://media.cmcdn.net/3315168/750x947.jpeg" style="width:740px;height:947px;" data-height="947" data-width="750" />
+		</div>
+
+		<span class="zoomer">
+			<span class="track"></span>
+			<span class="nub">x</span>
+		</span>
+	</div>
+
+
+
+
+		<span class="swap">Swap</span>
+
+	<script>
+
+	$(function() {
+
+
+
+   $.each(document.querySelectorAll('.cropper'), function(i, el) {
+     console.log(el);
+
+     new Carbon.Cropper(el);
+   });
+
+   /*
+  	var cropper1 = new Carbon.Cropper('#cropper1');
+
+  	var img2  = {
+  		url: 'http://media.cmcdn.net/13367932.jpeg',
+  		width: 905,
+  		height: 603
+  	};
+
+  	$('.swap').click(function() {
+  		cropper1.changeImage(img2);
+  	});
+
+  	$('.get').click(function() {
+    	var transform = cropper1.getTransform();
+
+  		$('#preview')[0].src = 'http://media.cmcdn.net/13367932/' + transform.toString();
+
+  		$('#transform').val(transform.toString());
+  	});
+
+
+  	window.cropper1 = cropper1;
+*/
+
+
+	});
+
+
+	</script>
+
+
+
+
+</div><!-- /Wrapper -->
+
+
+
+</body>
+</html>

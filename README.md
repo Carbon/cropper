@@ -1,0 +1,5 @@
+# cropper
+
+### Dependencies
+
+- jQuery
