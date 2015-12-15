@@ -2,16 +2,14 @@
 <html>
 <head>
 <title>Cropper Examples</title>
-	<script src="../base/base.js"></script>
+  
+  <script src="https://da12rf4xga553.cloudfront.net/libs/basejs/1.1.0/basejs.js"></script>
 	<script src="../lib/cropper.js"></script>
 
   <link rel="stylesheet" type="text/css" href="../assets/cropper.css" />
 </head>
 
 <body>
-
-
-
 	<div class="cropper" style="width:800px;">
 
 		<div class="viewport" style="width:800px;height:400px;background-color:#000">
@@ -23,7 +21,6 @@
 			<span class="nub" style="width:50px;display:inline-block;background-color:red;">x</span>
 		</span>
 	</div>
-
 
 	<div style="height:100px;"></div>
 
@@ -72,17 +69,12 @@
 	</div>
 
 
-
-
 		<span class="swap">Swap</span>
 
 	<script>
 
-	$(function() {
-
-
-
-   $.each(document.querySelectorAll('.cropper'), function(i, el) {
+    
+   Array.from(document.querySelectorAll('.cropper')).forEach(function(el) {
      console.log(el);
 
      new Carbon.Cropper(el);
@@ -112,9 +104,6 @@
 
   	window.cropper1 = cropper1;
 */
-
-
-	});
 
 
 	</script>

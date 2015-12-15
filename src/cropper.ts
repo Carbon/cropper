@@ -5,7 +5,7 @@
 
 module Carbon {
   export class Cropper {
-    element  : any;
+    element  : HTMLElement;
     viewport : Viewport;
     content  : ViewportContent;
     zoomer   : Slider;
@@ -18,13 +18,21 @@ module Carbon {
 
     options: any;
 
-    constructor(element: HTMLElement, options) {
-      this.element = $(element);
-
-      if (this.element.length == 0) throw new Error('element not found');
-
-      this.viewport = new Viewport(this.element.find('.viewport')[0]);
-      this.content  = new ViewportContent(this.element.find('.content'), this.viewport);
+    constructor(element: HTMLElement | string, options) {
+      if (typeof element === 'string') {
+        this.element = <HTMLElement>document.querySelector(element);
+      }
+      else {
+        this.element = element;
+      }
+      
+      var contentEl = <HTMLImageElement>this.element.querySelector('.content');
+      
+      console.log(contentEl);
+      
+      
+      this.viewport = new Viewport(<HTMLElement>this.element.querySelector('.viewport'));
+      this.content  = new ViewportContent(contentEl, this.viewport);
 
       this.viewport.content = this.content;
 
@@ -32,10 +40,10 @@ module Carbon {
       this.mouseOffset = new Point(0, 0);
 
       this.viewport.element.addEventListener('mousedown', this.startDrag.bind(this), true);
+      
+      contentEl.style.cursor = 'grab';
 
-      this.element.find('.content').css('cursor', 'grab');
-
-      this.zoomer = new Slider(this.element.find('.zoomer')[0], {
+      this.zoomer = new Slider(<HTMLElement>this.element.querySelector('.zoomer'), {
         change : this.setScale.bind(this),
         end    : this.onSlideStop.bind(this)
       });
@@ -46,20 +54,18 @@ module Carbon {
         this.zoomer.hide();
       }
 
-      let data = this.element.data();
-
       this.setScale(this.options.scale || 0);
       this.center();
 
-      if (data.transform) {
-        this.setTransform(data.transform);
+      if (this.element.dataset['transform']) {
+        this.setTransform(this.element.dataset['transform']);
       }
-
-      this.element.data('controller', this);
+      
+      $(this.element).data('controller', this);
     }
 
     onSlideStop() {
-      this.element.triggerHandler({
+      $(this.element).triggerHandler({
         type      : 'change',
         transform : this.getTransform().toString()
       });
@@ -79,7 +85,7 @@ module Carbon {
         mouseup   : this.endDrag.bind(this)
       });
 
-      this.element.addClass('dragging');
+      this.element.classList.add('dragging');
 
       // e.which == 1
 
@@ -91,7 +97,7 @@ module Carbon {
         left : this.viewport.offset.left || 0
       };
 
-      this.element.triggerHandler('start');
+      $(this.element).triggerHandler('start');
 
       e.preventDefault();
     }
@@ -117,12 +123,12 @@ module Carbon {
     endDrag(e) {
       $(document).off('mousemove mouseup');
 
-      this.element.removeClass('dragging');
+      this.element.classList.remove('dragging');
 
       this.active = false;
       this.dragging = false;
 
-      this.element.triggerHandler({
+      $(this.element).triggerHandler({
         type : 'change',
         transform : this.getTransform().toString()
       });
@@ -400,7 +406,7 @@ module Carbon {
   }
 
   class ViewportContent {
-    element: any;
+    element: HTMLImageElement;
     viewport: Viewport;
     sourceWidth: number;
     sourceHeight: number;
@@ -413,14 +419,12 @@ module Carbon {
     relativeScale: LinearScale;
     rotate: number;
 
-    constructor(element, viewport: Viewport) {
-      this.element = $(element);
+    constructor(element: HTMLImageElement, viewport: Viewport) {
+      this.element = element;
       this.viewport = viewport;
 
-      var data = this.element.data();
-
-      this.sourceWidth = data.width;
-      this.sourceHeight = data.height;
+      this.sourceWidth = parseInt(this.element.dataset['width'], 10);
+      this.sourceHeight = parseInt(this.element.dataset['height'], 10);
 
       this.width = this.sourceWidth;
       this.height = this.sourceHeight;
@@ -429,14 +433,12 @@ module Carbon {
     }
 
     changeImage(image : IMedia) {
-      var el = this.element[0];
+      this.element.src = '';
 
-      el.src = '';
+      this.element.width = this.sourceWidth = image.width;
+      this.element.height = this.sourceHeight = image.height;
 
-      el.width = this.sourceWidth = image.width;
-      el.height = this.sourceHeight = image.height;
-
-      el.src = image.url;
+      this.element.src = image.url;
 
       this.rotate = image.rotate;
 
@@ -470,11 +472,9 @@ module Carbon {
       this.height = size.height;
 
       this.scale = this.getCurrentScale();
-
-      this.element.css({
-        width: this.width + 'px',
-        height: this.height + 'px'
-      });
+      
+      this.element.style.width = this.width + 'px';
+      this.element.style.height = this.height + 'px';
 
       this.viewport.recenter();
     }
@@ -487,11 +487,9 @@ module Carbon {
       // Scaled width & height
       this.width = Math.round(this.scale * this.sourceWidth);
       this.height = Math.round(this.scale * this.sourceHeight);
-
-      this.element.css({
-        width: this.width + 'px',
-        height: this.height + 'px'
-      });
+      
+      this.element.style.width = this.width + 'px';
+      this.element.style.height = this.height + 'px';
 
       this.viewport.recenter();
     }
