@@ -1,16 +1,20 @@
-/* Copyright 2011-2015 Jason Nelson (@iamcarbon)
+/* Copyright 2011-2016 Jason Nelson (@iamcarbon)
    Free to use and modify under the MIT licence
    You must not remove this notice.
 */
 
 module Carbon {
   export class Cropper {
+    static get(el) : Cropper {
+      return $(el).data('controller') || new Cropper(el, { });
+    }
+    
     element  : HTMLElement;
     viewport : Viewport;
     content  : ViewportContent;
     zoomer   : Slider;
 
-    active   = false;
+    active = false;
     dragging = false;
 
     mouseOffset: Point;
@@ -18,6 +22,9 @@ module Carbon {
 
     options: any;
 
+    mousemoveListener: any;
+    mouseupListener: any;
+    
     constructor(element: HTMLElement | string, options) {
       if (typeof element === 'string') {
         this.element = <HTMLElement>document.querySelector(element);
@@ -26,12 +33,10 @@ module Carbon {
         this.element = element;
       }
       
-      var contentEl = <HTMLImageElement>this.element.querySelector('.content');
+      let contentEl = <HTMLImageElement>this.element.querySelector('.content');      
+      let viewportEl = <HTMLElement>this.element.querySelector('.viewport');
       
-      console.log(contentEl);
-      
-      
-      this.viewport = new Viewport(<HTMLElement>this.element.querySelector('.viewport'));
+      this.viewport = new Viewport(viewportEl);
       this.content  = new ViewportContent(contentEl, this.viewport);
 
       this.viewport.content = this.content;
@@ -43,43 +48,54 @@ module Carbon {
       
       contentEl.style.cursor = 'grab';
 
-      this.zoomer = new Slider(<HTMLElement>this.element.querySelector('.zoomer'), {
-        change : this.setScale.bind(this),
-        end    : this.onSlideStop.bind(this)
-      });
-
-      if (this.content.calculateMinScale() > 1) {
-        // We're streching. Disable zoom
-
-        this.zoomer.hide();
+      if (this.options.zoomer) {
+        this.zoomer = options.zoomer;
       }
-
+      else {
+        let zoomerEl = <HTMLElement>this.element.querySelector('.zoomer');
+      
+        this.zoomer = new Slider(zoomerEl, {
+          change : this.setScale.bind(this),
+          end    : this.onSlideStop.bind(this)
+        });
+      }
+    
       this.setScale(this.options.scale || 0);
       this.center();
 
       if (this.element.dataset['transform']) {
         this.setTransform(this.element.dataset['transform']);
       }
-      
+     
+      if (this.content.calculateMinScale() > 1) {
+        this.element.classList.add('stretched');
+      }
+       
       $(this.element).data('controller', this);
     }
 
     onSlideStop() {
-      $(this.element).triggerHandler({
-        type      : 'change',
-        transform : this.getTransform().toString()
+     this.onEnd();
+    }
+
+    onEnd() {
+      _.trigger(this.element, 'crop:end', {
+        instance: this,
+        transform: this.getTransform().toString()
       });
     }
-
-    on(name: string, callback: Function) {
-      $(this.element).on(name, callback);
-    }
-
-    off(name: string) {
-      $(this.element).off(name);
-    }
+    
+    on(type: string, listener: EventListener) {
+      this.element.addEventListener(type, listener, true);
+    } 
 
     startDrag(e: MouseEvent) {
+      e.preventDefault();
+      
+      if (!_.trigger(this.element, 'crop:start', { instance: this })) {
+        return;
+      }
+      
       $(document).on({
         mousemove : this.moveDrag.bind(this),
         mouseup   : this.endDrag.bind(this)
@@ -96,10 +112,6 @@ module Carbon {
         top  : this.viewport.offset.top || 0,
         left : this.viewport.offset.left || 0
       };
-
-      $(this.element).triggerHandler('start');
-
-      e.preventDefault();
     }
 
     moveDrag(e) {
@@ -118,6 +130,10 @@ module Carbon {
       };
 
       this.viewport.setOffset(contentOffset);
+      
+      _.trigger(this.element, 'crop:change', {
+        instance: this
+      });
     }
 
     endDrag(e) {
@@ -127,11 +143,8 @@ module Carbon {
 
       this.active = false;
       this.dragging = false;
-
-      $(this.element).triggerHandler({
-        type : 'change',
-        transform : this.getTransform().toString()
-      });
+      
+      this.onEnd();
     }
 
     setImage(image: IMedia) {
@@ -157,17 +170,15 @@ module Carbon {
       // 789x525/crop:273-191_240x140
       // rotate(90)/...
 
-      var parts = text.split('/');
+      let parts = text.split('/');
 
-      var transformGroup = new TransformGroup();
+      let transformGroup = new TransformGroup();
 
-      for (var i = 0, len = parts.length; i < len; i++) {
-        var part = parts[i];
-
+      for (var part of parts) {
         if (part.indexOf(':') > -1) {
           // Flip crop origin from top left to bottom left
 
-          var cropValue = part.split(':')[1];
+          let cropValue = part.split(':')[1];
 
           transformGroup.crop = {
             x      : parseInt(cropValue.split('_')[0].split('-')[0], 10),
@@ -189,12 +200,12 @@ module Carbon {
 
       this.content.setSize(transformGroup.resize);
 
-      var minWidth = this.content.calculateMinScale() * this.content.sourceWidth;
-      var maxWidth = this.content.sourceWidth;
+      let minWidth = this.content.calculateMinScale() * this.content.sourceWidth;
+      let maxWidth = this.content.sourceWidth;
 
-      var dif = maxWidth - minWidth;
+      let dif = maxWidth - minWidth;
 
-      var relativeScale = (transformGroup.resize.width - minWidth) / dif;
+      let relativeScale = (transformGroup.resize.width - minWidth) / dif;
 
       this.setScale(relativeScale);
 
@@ -207,11 +218,23 @@ module Carbon {
       // stretch logic
       let stretched = this.viewport.content.calculateMinScale() > 1;
 
-      this.element[stretched ? 'addClass' : 'removeClass']('stretched');
+      this.element.classList[stretched ? 'add' : 'remove']('stretched');
 
       return transformGroup;
     }
 
+    set(crop: Rectangle) {
+      let box = { 
+        width  : this.content.sourceWidth * crop.width,
+        height : this.content.sourceWidth * crop.height,
+        top    : this.content.sourceHeight * crop.y,
+        left   : this.content.sourceWidth * crop.x
+      };     
+      
+      this.content.setSize(box);
+      this.viewport.setOffset(box);
+    }
+    
     getTransform() {
       let transformGroup = new TransformGroup();
 
@@ -234,21 +257,22 @@ module Carbon {
       return transformGroup;
     }
   }
-
+  
+  
   class TransformGroup {
     rotate: number;
     resize: Size;
     crop: Rectangle;
 
     toString() {
-      var parts = [];
+      let parts = [];
 
       if (this.rotate) {
-        parts.push('rotate(' + this.rotate + ')');
+        parts.push(`rotate(${this.rotate})`);
       }
 
       parts.push(this.resize.width + 'x' + this.resize.height);
-      parts.push('crop:' + this.crop.x + '-' + this.crop.y + '_' + this.crop.width + 'x' + this.crop.height);
+      parts.push(`crop:${this.crop.x}-${this.crop.y}_${this.crop.width}x${this.crop.height}`);
 
       return parts.join('/');
     }
@@ -263,6 +287,9 @@ module Carbon {
     dragging = false;
     trackWidth: number;
 
+    mousemoveListener = this.moveTo.bind(this);
+    mouseupListener = this.endDrag.bind(this);
+    
     constructor(element: HTMLElement, options) {
       this.element = element;
       this.options = options || {};
@@ -275,42 +302,35 @@ module Carbon {
       this.nubEl.addEventListener('mousedown', this.startDrag.bind(this), true);
       this.nubEl.addEventListener('mouseup', this.endDrag.bind(this), true);
 
-      this.trackWidth = this.trackEl.clientWidth;
+      this.trackWidth = this.trackEl.clientWidth;      
     }
-
-    hide() {
-      this.element.style.display = 'none';
-    }
-
+    
     startDrag(e: MouseEvent) {
       e.preventDefault();
 
       this.dragging = true;
       this.moveTo(e);
-
-      $(document).on({
-      	mousemove : this.moveTo.bind(this),
-      	mouseup   : this.endDrag.bind(this)
-      });
+      
+      document.addEventListener('mousemove', this.mousemoveListener, true);
+      document.addEventListener('mouseup', this.mouseupListener, true);
 
       if (this.options.start) this.options.start();
-
-      $(this.element).triggerHandler('start');
     }
 
     endDrag(e) {
       this.moveTo(e);
       this.dragging = false;
-
-      $(document).off('mousemove mouseup');
+      
+      document.removeEventListener('mousemove', this.mousemoveListener, true);
+      document.removeEventListener('mouseup', this.mouseupListener, true);
 
       if (this.options.end) this.options.end();
     }
 
     setValue(value: number) {
-      var nubWidth = this.nubEl.clientWidth;
+      let nubWidth = this.nubEl.clientWidth;
 
-      var x = Math.floor((this.trackWidth - nubWidth) * value);
+      let x = Math.floor((this.trackWidth - nubWidth) * value);
 
     	this.nubEl.style.left = x + 'px';
     }
@@ -328,21 +348,16 @@ module Carbon {
     element: HTMLElement;
     width: number;
     height: number;
-    center: Point;
-    offset: any;
+    
     content : ViewportContent;
 
+    center = new Point(0, 0);
+    offset = { top: 0, left: 0 };
+    
     constructor(element: HTMLElement) {
       this.element = element;
       this.height  = this.element.clientHeight;
       this.width   = this.element.clientWidth;
-
-      this.offset = {
-        left: 0,
-        top: 0
-      };
-
-      this.center = new Point(0, 0);
     }
 
     setSize(width: number, height: number) {
@@ -362,38 +377,38 @@ module Carbon {
         offset.top = 0;
       }
 
-      var distanceToRightEdge = this.content.width - this.width + offset.left;
+      let distanceToRightEdge = this.content.width - this.width + offset.left;
 
       if (distanceToRightEdge < 0) {
         offset.left = -(this.content.width - this.width);
       }
 
-      var distanceToBottomEdge = this.content.height - this.height + offset.top;
+      let distanceToBottomEdge = this.content.height - this.height + offset.top;
 
       if (distanceToBottomEdge < 0) {
         offset.top = -(this.content.height - this.height);
       }
 
-      // Set the offsets
+      // round to pixels
       this.offset.left = Math.round(offset.left);
       this.offset.top = Math.round(offset.top);
 
       this.element.scrollLeft = -this.offset.left;
       this.element.scrollTop  = -this.offset.top;
 
-      var leftToCenter = (-this.offset.left) + (this.width / 2);
-      var topToCenter = (-this.offset.top) + (this.height / 2);
+      let leftToCenter = (-this.offset.left) + (this.width / 2);
+      let topToCenter = (-this.offset.top) + (this.height / 2);
 
       this.center.x = (leftToCenter / this.content.width);
       this.center.y = (topToCenter / this.content.height);
     }
 
     recenter() {
-      var x = this.content.width * (this.center.x);
-      var y = this.content.height * (this.center.y);
+      let x = this.content.width * (this.center.x);
+      let y = this.content.height * (this.center.y);
 
-      var leftOffset = -(((x * 2) - this.width) / 2);
-      var topOffset = -(((y * 2) - this.height) / 2);
+      let leftOffset = -(((x * 2) - this.width) / 2);
+      let topOffset = -(((y * 2) - this.height) / 2);
 
       this.setOffset({ left: leftOffset, top: topOffset });
     }
@@ -422,7 +437,7 @@ module Carbon {
     constructor(element: HTMLImageElement, viewport: Viewport) {
       this.element = element;
       this.viewport = viewport;
-
+      
       this.sourceWidth = parseInt(this.element.dataset['width'], 10);
       this.sourceHeight = parseInt(this.element.dataset['height'], 10);
 
@@ -452,7 +467,7 @@ module Carbon {
     // The minimum size for the content to fit entirely in the viewport
     // May be great than 1 (stretched)
     calculateMinScale() : number {
-      var minScale;
+      let minScale: number;
       let percentW = this.viewport.width / this.sourceWidth;
       let percentH = this.viewport.height / this.sourceHeight;
 
@@ -508,7 +523,7 @@ module Carbon {
       let lower = this.domain[0];
       let upper = this.domain[1];
 
-      var dif = upper - lower;
+      let dif = upper - lower;
 
       return lower + (value * dif);
     }
@@ -539,11 +554,11 @@ module Carbon {
   }
 
   var Util = {
-    getRelativePosition: function(x: number, relativeElement: HTMLElement) {
+    getRelativePosition(x: number, relativeElement: HTMLElement) {
       return Math.max(0, Math.min(1, (x - this.findPosX(relativeElement)) / relativeElement.offsetWidth));
     },
 
-    findPosX: function(element) {
+    findPosX(element) {
       var curLeft = element.offsetLeft;
 
       while ((element = element.offsetParent)) {
@@ -553,4 +568,13 @@ module Carbon {
       return curLeft;
     }
   };
+
+  module _ {
+    export function trigger(element: Element, name: string, detail?) : boolean {
+      return element.dispatchEvent(new CustomEvent(name, {
+        bubbles: true,
+        detail: detail
+      }));
+    }
+  }
 }
