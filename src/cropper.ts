@@ -5,8 +5,10 @@
 
 module Carbon {
   export class Cropper {
-    static get(el) : Cropper {
-      return $(el).data('controller') || new Cropper(el, { });
+    static map = new WeakMap<HTMLElement, Cropper>();
+
+    static get(el: HTMLElement) : Cropper {
+      return Cropper.map.get(el) || new Cropper(el);
     }
     
     element  : HTMLElement;
@@ -25,7 +27,9 @@ module Carbon {
     mousemoveListener: any;
     mouseupListener: any;
     
-    constructor(element: HTMLElement | string, options) {
+    listeners: Observer[] = [ ];
+    
+    constructor(element: HTMLElement | string, options?) {
       if (typeof element === 'string') {
         this.element = <HTMLElement>document.querySelector(element);
       }
@@ -71,7 +75,7 @@ module Carbon {
         this.element.classList.add('stretched');
       }
        
-      $(this.element).data('controller', this);
+      Cropper.map.set(this.element, this);
     }
 
     onSlideStop() {
@@ -79,7 +83,7 @@ module Carbon {
     }
 
     onEnd() {
-      _.trigger(this.element, 'crop:end', {
+      _.trigger(this.element, 'end', {
         instance: this,
         transform: this.getTransform().toString()
       });
@@ -92,14 +96,14 @@ module Carbon {
     startDrag(e: MouseEvent) {
       e.preventDefault();
       
-      if (!_.trigger(this.element, 'crop:start', { instance: this })) {
+      if (!_.trigger(this.element, 'start', { instance: this })) {
         return;
       }
       
-      $(document).on({
-        mousemove : this.moveDrag.bind(this),
-        mouseup   : this.endDrag.bind(this)
-      });
+      this.listeners.push(
+        new Observer(document, 'mousemove', this.moveDrag.bind(this), false),
+        new Observer(document, 'mouseup', this.endDrag.bind(this), false)  
+      );
 
       this.element.classList.add('dragging');
 
@@ -137,8 +141,10 @@ module Carbon {
     }
 
     endDrag(e) {
-      $(document).off('mousemove mouseup');
-
+      while(this.listeners.length > 0) {        
+        this.listeners.pop().stop();
+      }
+      
       this.element.classList.remove('dragging');
 
       this.active = false;
@@ -575,6 +581,20 @@ module Carbon {
         bubbles: true,
         detail: detail
       }));
+    }
+  }
+  
+  class Observer {
+    constructor(public element: Element | Document, public type, public handler, public useCapture = false) {
+      this.element.addEventListener(type, handler, useCapture);
+    }
+	   
+    start() {
+      this.element.addEventListener(this.type, this.handler, this.useCapture);
+    }
+     
+    stop() {
+      this.element.removeEventListener(this.type, this.handler, this.useCapture)
     }
   }
 }
