@@ -4,6 +4,11 @@
 */
 
 module Carbon {
+  interface CropperOptions {
+    zoomer: Slider;
+    scale?: number;
+  }
+  
   export class Cropper {
     static map = new WeakMap<HTMLElement, Cropper>();
 
@@ -22,7 +27,7 @@ module Carbon {
     mouseOffset: Point;
     startOffset: any;
 
-    options: any;
+    options: CropperOptions;
 
     mousemoveListener: any;
     mouseupListener: any;
@@ -37,7 +42,7 @@ module Carbon {
         this.element = element;
       }
       
-      let contentEl = <HTMLImageElement>this.element.querySelector('.content');      
+      let contentEl = <HTMLElement>this.element.querySelector('.content');      
       let viewportEl = <HTMLElement>this.element.querySelector('.viewport');
       
       this.viewport = new Viewport(viewportEl);
@@ -90,7 +95,7 @@ module Carbon {
     }
     
     on(type: string, listener: EventListener) {
-      this.element.addEventListener(type, listener, true);
+      this.element.addEventListener(type, listener, false);
     } 
 
     startDrag(e: MouseEvent) {
@@ -141,7 +146,7 @@ module Carbon {
     }
 
     endDrag(e) {
-      while(this.listeners.length > 0) {        
+      while (this.listeners.length > 0) {        
         this.listeners.pop().stop();
       }
       
@@ -243,12 +248,8 @@ module Carbon {
     
     getTransform() {
       let transformGroup = new TransformGroup();
-
-      transformGroup.resize = {
-        width: 	this.content.width,
-        height: this.content.height
-      };
-
+      
+      transformGroup.resize = this.content.getScaledSize();
       transformGroup.rotate = this.content.rotate;
 
       // Flip crop origin from top left to bottom left
@@ -263,7 +264,6 @@ module Carbon {
       return transformGroup;
     }
   }
-  
   
   class TransformGroup {
     rotate: number;
@@ -383,40 +383,48 @@ module Carbon {
         offset.top = 0;
       }
 
-      let distanceToRightEdge = this.content.width - this.width + offset.left;
+      var size = this.content.getScaledSize();
+      
+      let distanceToRightEdge = size.width - this.width + offset.left;
 
       if (distanceToRightEdge < 0) {
-        offset.left = -(this.content.width - this.width);
+        offset.left = -(size.width - this.width);
       }
 
-      let distanceToBottomEdge = this.content.height - this.height + offset.top;
+      let distanceToBottomEdge = size.height - this.height + offset.top;
 
       if (distanceToBottomEdge < 0) {
-        offset.top = -(this.content.height - this.height);
+        offset.top = -(size.height - this.height);
       }
 
       // round to pixels
       this.offset.left = Math.round(offset.left);
       this.offset.top = Math.round(offset.top);
-
-      this.element.scrollLeft = -this.offset.left;
-      this.element.scrollTop  = -this.offset.top;
-
-      let leftToCenter = (-this.offset.left) + (this.width / 2);
-      let topToCenter = (-this.offset.top) + (this.height / 2);
-
-      this.center.x = (leftToCenter / this.content.width);
-      this.center.y = (topToCenter / this.content.height);
+      
+      this.content.setOffset(this.offset);
+      this.content.update();
+     
+      let leftToCenter = this.offset.left + (this.width / 2);
+      let topToCenter = this.offset.top + (this.height / 2);
+      
+      this.center = new Point(
+        leftToCenter / size.width,
+        topToCenter / size.height
+      );
     }
 
     recenter() {
-      let x = this.content.width * (this.center.x);
-      let y = this.content.height * (this.center.y);
+      var size = this.content.getScaledSize();
+            
+      let x = size.width * this.center.x;
+      let y = size.height * this.center.y;
 
-      let leftOffset = -(((x * 2) - this.width) / 2);
-      let topOffset = -(((y * 2) - this.height) / 2);
-
-      this.setOffset({ left: leftOffset, top: topOffset });
+      let offset = {
+        left : ((x * 2) - this.width) / 2,
+        top  : ((y * 2) - this.height) / 2
+      };
+            
+      this.setOffset(offset);
     }
 
     centerContent() {
@@ -427,48 +435,42 @@ module Carbon {
   }
 
   class ViewportContent {
-    element: HTMLImageElement;
+    element: HTMLElement;
     viewport: Viewport;
     sourceWidth: number;
     sourceHeight: number;
 
     scale = 1;
 
-    width: number;
-    height: number;
-
     relativeScale: LinearScale;
     rotate: number;
 
-    constructor(element: HTMLImageElement, viewport: Viewport) {
+    offset: { top: number, left: number };
+    
+    constructor(element: HTMLElement, viewport: Viewport) {
       this.element = element;
       this.viewport = viewport;
       
       this.sourceWidth = parseInt(this.element.dataset['width'], 10);
       this.sourceHeight = parseInt(this.element.dataset['height'], 10);
 
-      this.width = this.sourceWidth;
-      this.height = this.sourceHeight;
-
       this.relativeScale = new LinearScale([this.calculateMinScale(), 1]); // to the min & max sizes
     }
 
     changeImage(image : IMedia) {
-      this.element.src = '';
+      this.element.style.backgroundImage = '';
 
-      this.element.width = this.sourceWidth = image.width;
-      this.element.height = this.sourceHeight = image.height;
-
-      this.element.src = image.url;
+      this.sourceWidth = image.width;
+      this.sourceHeight = image.height;
+      
+      this.element.style.backgroundImage = image.url;
 
       this.rotate = image.rotate;
 
       this.relativeScale = new LinearScale([this.calculateMinScale(), 1]);
+      
+      this.setSize(image);
    	}
-
-    getCurrentScale() : number {
-      return this.width / this.sourceWidth;
-    }
 
     // The minimum size for the content to fit entirely in the viewport
     // May be great than 1 (stretched)
@@ -476,7 +478,7 @@ module Carbon {
       let minScale: number;
       let percentW = this.viewport.width / this.sourceWidth;
       let percentH = this.viewport.height / this.sourceHeight;
-
+      
       if (percentH < percentW) {
         minScale = percentW;
       }
@@ -487,32 +489,40 @@ module Carbon {
       return minScale;
     }
 
-    // TEMP
     setSize(size: Size) {
-      this.width = size.width;
-      this.height = size.height;
-
-      this.scale = this.getCurrentScale();
+      this.scale = size.width / this.sourceWidth;
       
-      this.element.style.width = this.width + 'px';
-      this.element.style.height = this.height + 'px';
-
+      this.update();
+      
       this.viewport.recenter();
     }
 
+    setOffset(offset: { top: number, left: number}) {
+      this.offset = offset;
+        
+      this.update();
+    }
+    
     setRelativeScale(value: number) {
       if (value > 1) return;
 
       this.scale = this.relativeScale.getValue(value); // Convert to absolute scale
-
-      // Scaled width & height
-      this.width = Math.round(this.scale * this.sourceWidth);
-      this.height = Math.round(this.scale * this.sourceHeight);
       
-      this.element.style.width = this.width + 'px';
-      this.element.style.height = this.height + 'px';
-
       this.viewport.recenter();
+    }
+    
+    getScaledSize() {      
+      // Scaled width & height
+      return { 
+        width  : Math.round(this.scale * this.sourceWidth),
+        height : Math.round(this.scale * this.sourceHeight)
+      };
+    }
+    
+    update() {
+      // translate(x, y)
+      this.element.style.transformOrigin = '0 0';
+      this.element.style.transform = `scale(${this.scale}) translate(${this.offset.left}px, ${this.offset.top}px)`;
     }
   }
 
@@ -564,10 +574,10 @@ module Carbon {
       return Math.max(0, Math.min(1, (x - this.findPosX(relativeElement)) / relativeElement.offsetWidth));
     },
 
-    findPosX(element) {
+    findPosX(element: HTMLElement) {
       var curLeft = element.offsetLeft;
 
-      while ((element = element.offsetParent)) {
+      while ((element = <HTMLElement>element.offsetParent)) {
         curLeft += element.offsetLeft;
       }
 
@@ -587,10 +597,6 @@ module Carbon {
   class Observer {
     constructor(public element: Element | Document, public type, public handler, public useCapture = false) {
       this.element.addEventListener(type, handler, useCapture);
-    }
-	   
-    start() {
-      this.element.addEventListener(this.type, this.handler, this.useCapture);
     }
      
     stop() {
