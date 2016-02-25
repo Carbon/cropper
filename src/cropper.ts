@@ -68,9 +68,10 @@ module Carbon {
           end    : this.onSlideStop.bind(this)
         });
       }
-    
+      
+      this.viewport.center = new Point(0.5, 0.5);
       this.setScale(this.options.scale || 0);
-      this.center();
+      this.viewport.recenter();
 
       if (this.element.dataset['transform']) {
         this.setTransform(this.element.dataset['transform']);
@@ -131,8 +132,6 @@ module Carbon {
         y: e.clientY - this.mouseOffset.y
       };
       
-
-
       
       let contentOffset = {
       	top  : distance.y + this.startOffset.top,
@@ -140,7 +139,6 @@ module Carbon {
       };
     
      
-      
       this.viewport.setOffset(contentOffset);
       
       _.trigger(this.element, 'crop:change', {
@@ -172,7 +170,9 @@ module Carbon {
     }
 
     center() {
-    	this.viewport.centerContent();
+    	this.viewport.center = new Point(0.5, 0.5);
+      
+      this.viewport.recenter();
     }
 
     setScale(value: number) {
@@ -258,8 +258,8 @@ module Carbon {
       // Flip crop origin from top left to bottom left
 
       transformGroup.crop = {
-        x      : (Math.abs(this.viewport.offset.left)) || 0,
-        y      : (Math.abs(this.viewport.offset.top)) || 0,
+        x      : (Math.abs(Math.round(this.viewport.offset.left))) || 0,
+        y      : (Math.abs(Math.round(this.viewport.offset.top))) || 0,
         width  : this.viewport.width,
         height : this.viewport.height,
       };
@@ -388,24 +388,24 @@ module Carbon {
 
       var size = this.content.getScaledSize();
       
-      let distanceToRightEdge = (size.width - this.width) + (offset.left * this.content.scale);
+      let distanceToRightEdge = (size.width - this.width) + offset.left;
     
       if (distanceToRightEdge < 0) {
-       offset.left = - ((size.width - this.width) / this.content.scale);
+       offset.left = - (size.width - this.width);
       }
 
-      let distanceToBottomEdge = size.height - this.height + (offset.top * this.content.scale);
+      let distanceToBottomEdge = size.height - this.height + offset.top;
 
       if (distanceToBottomEdge < 0) {
-        offset.top = - ((size.height - this.height) / this.content.scale);
+        offset.top = - (size.height - this.height);
       }
 
       this.offset = offset;
      
       this.content._setOffset(this.offset);
-     
-      let leftToCenter = this.offset.left + (this.width / 2);
-      let topToCenter = this.offset.top + (this.height / 2);
+      
+      let leftToCenter = - (this.offset.left) + (this.width / 2);
+      let topToCenter = - (this.offset.top) + (this.height / 2);
       
       this.center = new Point(
         leftToCenter / size.width,
@@ -415,22 +415,16 @@ module Carbon {
 
     recenter() {
       var size = this.content.getScaledSize();
-            
+      
       let x = size.width * this.center.x;
       let y = size.height * this.center.y;
-
+      
       let offset = {
-        left : ((x * 2) - this.width) / 2,
-        top  : ((y * 2) - this.height) / 2
+        left : - (((x * 2) - this.width) / 2),
+        top  : - (((y * 2) - this.height) / 2)
       };
-            
+      
       this.setOffset(offset);
-    }
-
-    centerContent() {
-      this.center = new Point(0.5, 0.5);
-
-      this.recenter();
     }
   }
 
@@ -531,7 +525,7 @@ module Carbon {
     update() {
       // translate(x, y)
       this.element.style.transformOrigin = '0 0';
-      this.element.style.transform = `scale(${this.scale}) translate(${this.offset.left}px, ${this.offset.top}px)`;
+      this.element.style.transform = `scale(${this.scale}) translate(${this.offset.left / this.scale}px, ${this.offset.top / this.scale}px)`;
     }
   }
 
