@@ -463,13 +463,18 @@ module Carbon {
       this.sourceWidth = image.width;
       this.sourceHeight = image.height;
       
-      this.element.style.backgroundImage = image.url;
+      this.element.dataset['width'] = image.width.toString();
+      this.element.dataset['height'] = image.height.toString();
+      
+      this.element.style.backgroundImage = `url('${image.url}')`;
 
       this.rotate = image.rotate;
 
       this.relativeScale = new LinearScale([this.calculateMinScale(), 1]);
       
       this.setSize(image);
+      
+      this.setRelativeScale(0);
    	}
 
     // The minimum size for the content to fit entirely in the viewport
