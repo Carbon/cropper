@@ -115,12 +115,10 @@ module Carbon {
       // e.which == 1
 
       this.active = true;
+      
       this.mouseOffset = new Point(e.clientX, e.clientY);
 
-      this.startOffset = {
-        top  : this.viewport.offset.top || 0,
-        left : this.viewport.offset.left || 0
-      };
+      this.startOffset = this.viewport.offset;
     }
 
     moveDrag(e) {
@@ -132,12 +130,17 @@ module Carbon {
         x: e.clientX - this.mouseOffset.x,
         y: e.clientY - this.mouseOffset.y
       };
+      
 
+
+      
       let contentOffset = {
-      	top  : Math.round(distance.y + this.startOffset.top),
-        left : Math.round(distance.x + this.startOffset.left)
+      	top  : distance.y + this.startOffset.top,
+        left : distance.x + this.startOffset.left
       };
-
+    
+     
+      
       this.viewport.setOffset(contentOffset);
       
       _.trigger(this.element, 'crop:change', {
@@ -374,7 +377,7 @@ module Carbon {
       this.width = width;
     }
 
-    setOffset(offset) {
+    setOffset(offset: { top: number, left: number }) {
       if (offset.left > 0) {
         offset.left = 0;
       }
@@ -385,24 +388,21 @@ module Carbon {
 
       var size = this.content.getScaledSize();
       
-      let distanceToRightEdge = size.width - this.width + offset.left;
-
+      let distanceToRightEdge = (size.width - this.width) + (offset.left * this.content.scale);
+    
       if (distanceToRightEdge < 0) {
-        offset.left = -(size.width - this.width);
+       offset.left = - ((size.width - this.width) / this.content.scale);
       }
 
-      let distanceToBottomEdge = size.height - this.height + offset.top;
+      let distanceToBottomEdge = size.height - this.height + (offset.top * this.content.scale);
 
       if (distanceToBottomEdge < 0) {
-        offset.top = -(size.height - this.height);
+        offset.top = - ((size.height - this.height) / this.content.scale);
       }
 
-      // round to pixels
-      this.offset.left = Math.round(offset.left);
-      this.offset.top = Math.round(offset.top);
-      
-      this.content.setOffset(this.offset);
-      this.content.update();
+      this.offset = offset;
+     
+      this.content._setOffset(this.offset);
      
       let leftToCenter = this.offset.left + (this.width / 2);
       let topToCenter = this.offset.top + (this.height / 2);
@@ -465,9 +465,13 @@ module Carbon {
       
       this.element.dataset['width'] = image.width.toString();
       this.element.dataset['height'] = image.height.toString();
-      
+  
+      this.element.style.width = image.width + 'px';
+      this.element.style.height = image.height + 'px';
+            
       this.element.style.backgroundImage = `url('${image.url}')`;
 
+      
       this.rotate = image.rotate;
 
       this.relativeScale = new LinearScale([this.calculateMinScale(), 1]);
@@ -479,7 +483,7 @@ module Carbon {
 
     // The minimum size for the content to fit entirely in the viewport
     // May be great than 1 (stretched)
-    calculateMinScale() : number {
+    calculateMinScale(): number {
       let minScale: number;
       let percentW = this.viewport.width / this.sourceWidth;
       let percentH = this.viewport.height / this.sourceHeight;
@@ -502,7 +506,7 @@ module Carbon {
       this.viewport.recenter();
     }
 
-    setOffset(offset: { top: number, left: number}) {
+    _setOffset(offset: { top: number, left: number}) {
       this.offset = offset;
         
       this.update();
