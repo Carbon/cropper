@@ -55,7 +55,7 @@ module Carbon {
         this.setTransform(this.element.dataset['transform']);
       }
       else {
-        this.viewport.center = new Point(0.5, 0.5);      
+        this.viewport.anchorPoint = new Point(0.5, 0.5);      
         this.setScale(this.options.scale || 0);
         this.viewport.recenter();     
       }
@@ -91,7 +91,7 @@ module Carbon {
     	 this.setScale(0);
       }
     }
-
+    
     center() {
     	this.viewport.center = new Point(0.5, 0.5);
       
@@ -328,7 +328,7 @@ module Carbon {
     
     content : ViewportContent;
 
-    center = new Point(0, 0);
+    anchorPoint = new Point(0, 0);
     offset = new Point(0, 0);
     
     constructor(element: HTMLElement) {
@@ -350,18 +350,19 @@ module Carbon {
      
       this.content._setOffset(this.offset);
       
-      let leftToCenter = - (this.offset.x) + (this.width / 2);
-      let topToCenter = - (this.offset.y) + (this.height / 2);
+      let leftToCenter = -this.offset.x + (this.width / 2);
+      let topToCenter = -this.offset.y + (this.height / 2);
       
       let size = this.content.getScaledSize();
       
-      this.center = { 
+      this.anchorPoint = { 
         x: leftToCenter / size.width,
         y: topToCenter / size.height
       };
     }
+   
     
-    clamp(offset: Point) {            
+    clamp(offset: Point) {
       if (offset.x > 0) {
         offset.x = 0;
       }
@@ -390,8 +391,8 @@ module Carbon {
     recenter() {
       let size = this.content.getScaledSize();
       
-      let x = size.width * this.center.x;
-      let y = size.height * this.center.y;
+      let x = size.width * this.anchorPoint.x;
+      let y = size.height * this.anchorPoint.y;
       
       this.setOffset({
         x: - (((x * 2) - this.width) / 2),
@@ -425,7 +426,6 @@ module Carbon {
       this.relativeScale = new LinearScale([this.calculateMinScale(), 1]); // to the min & max sizes
     }
 
-  
     setImage(image: Media) {
       this.element.style.backgroundImage = '';
 
