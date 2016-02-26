@@ -22,6 +22,12 @@ module Carbon {
     
     listeners: Observer[] = [ ];
     
+    static instances = new WeakMap<HTMLElement, Cropper>();
+    
+    static get(element: HTMLElement) {  
+      return Cropper.instances.get(element) || new Cropper(element);
+    }
+    
     constructor(element: HTMLElement, options?) {
       this.element = element;
       
@@ -63,6 +69,8 @@ module Carbon {
       if (this.content.calculateMinScale() > 1) {
         this.element.classList.add('stretched');
       }
+
+      Cropper.instances.set(element, this);
     }
 
     onSlideStop() {
