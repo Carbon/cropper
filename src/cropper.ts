@@ -9,38 +9,21 @@ module Carbon {
     scale?: number;
   }
   
-  export class Cropper {
-    static map = new WeakMap<HTMLElement, Cropper>();
-
-    static get(el: HTMLElement) : Cropper {
-      return Cropper.map.get(el) || new Cropper(el);
-    }
-    
+  export class Cropper {    
     element  : HTMLElement;
     viewport : Viewport;
     content  : ViewportContent;
     zoomer   : Slider;
 
-    active = false;
-    dragging = false;
-
-    mouseOffset: Point;
-    startOffset: any;
+    dragOrigin: Point;
+    startOffset: Point;
 
     options: CropperOptions;
-
-    mousemoveListener: any;
-    mouseupListener: any;
     
     listeners: Observer[] = [ ];
     
-    constructor(element: HTMLElement | string, options?) {
-      if (typeof element === 'string') {
-        this.element = <HTMLElement>document.querySelector(element);
-      }
-      else {
-        this.element = element;
-      }
+    constructor(element: HTMLElement, options?) {
+      this.element = element;
       
       let contentEl = <HTMLElement>this.element.querySelector('.content');      
       let viewportEl = <HTMLElement>this.element.querySelector('.viewport');
@@ -51,9 +34,8 @@ module Carbon {
       this.viewport.content = this.content;
 
       this.options = options || { };
-      this.mouseOffset = new Point(0, 0);
 
-      this.viewport.element.addEventListener('mousedown', this.startDrag.bind(this), true);
+      this.viewport.element.addEventListener('mousedown', this._startDrag.bind(this), true);
       
       contentEl.style.cursor = 'grab';
 
@@ -69,19 +51,18 @@ module Carbon {
         });
       }
       
-      this.viewport.center = new Point(0.5, 0.5);
-      this.setScale(this.options.scale || 0);
-      this.viewport.recenter();
-
       if (this.element.dataset['transform']) {
         this.setTransform(this.element.dataset['transform']);
+      }
+      else {
+        this.viewport.center = new Point(0.5, 0.5);      
+        this.setScale(this.options.scale || 0);
+        this.viewport.recenter();     
       }
      
       if (this.content.calculateMinScale() > 1) {
         this.element.classList.add('stretched');
       }
-       
-      Cropper.map.set(this.element, this);
     }
 
     onSlideStop() {
@@ -90,8 +71,8 @@ module Carbon {
 
     onEnd() {
       _.trigger(this.element, 'end', {
-        instance: this,
-        transform: this.getTransform().toString()
+        instance  : this,
+        transform : this.getTransform().toString()
       });
     }
     
@@ -99,74 +80,16 @@ module Carbon {
       this.element.addEventListener(type, listener, false);
     } 
 
-    startDrag(e: MouseEvent) {
-      e.preventDefault();
-      
-      if (!_.trigger(this.element, 'start', { instance: this })) {
-        return;
+
+    setImage(image: Media, transform?: string) {
+    	this.content.setImage(image);
+
+      if (transform) {
+        this.setTransform(transform);
       }
-      
-      this.listeners.push(
-        new Observer(document, 'mousemove', this.moveDrag.bind(this), false),
-        new Observer(document, 'mouseup', this.endDrag.bind(this), false)  
-      );
-
-      this.element.classList.add('dragging');
-
-      // e.which == 1
-
-      this.active = true;
-      
-      this.mouseOffset = new Point(e.clientX, e.clientY);
-
-      this.startOffset = this.viewport.offset;
-    }
-
-    moveDrag(e) {
-      if(!this.active) return;
-
-      this.dragging = true;
-
-      let distance = {
-        x: e.clientX - this.mouseOffset.x,
-        y: e.clientY - this.mouseOffset.y
-      };
-      
-      
-      let contentOffset = {
-      	top  : distance.y + this.startOffset.top,
-        left : distance.x + this.startOffset.left
-      };
-    
-     
-      this.viewport.setOffset(contentOffset);
-      
-      _.trigger(this.element, 'crop:change', {
-        instance: this
-      });
-    }
-
-    endDrag(e) {
-      while (this.listeners.length > 0) {        
-        this.listeners.pop().stop();
+      else {
+    	 this.setScale(0);
       }
-      
-      this.element.classList.remove('dragging');
-
-      this.active = false;
-      this.dragging = false;
-      
-      this.onEnd();
-    }
-
-    setImage(image: IMedia) {
-      this.changeImage(image);
-    }
-
-    changeImage(image: IMedia) {
-    	this.content.changeImage(image);
-
-    	this.setScale(0);
     }
 
     center() {
@@ -214,8 +137,8 @@ module Carbon {
 
       this.content.setSize(transformGroup.resize);
 
-      let minWidth = this.content.calculateMinScale() * this.content.sourceWidth;
-      let maxWidth = this.content.sourceWidth;
+      let minWidth = this.content.calculateMinScale() * this.content.sourceSize.width;
+      let maxWidth = this.content.sourceSize.width;
 
       let dif = maxWidth - minWidth;
 
@@ -223,7 +146,10 @@ module Carbon {
 
       this.setScale(relativeScale);
 
-      this.viewport.setOffset({ top: - transformGroup.crop.y, left: - transformGroup.crop.x });
+      this.viewport.setOffset({ 
+        x: - transformGroup.crop.x,
+        y: - transformGroup.crop.y 
+      });
 
       if (transformGroup.rotate) {
         this.content.rotate = transformGroup.rotate;
@@ -239,10 +165,10 @@ module Carbon {
 
     set(crop: Rectangle) {
       let box = { 
-        width  : this.content.sourceWidth * crop.width,
-        height : this.content.sourceWidth * crop.height,
-        top    : this.content.sourceHeight * crop.y,
-        left   : this.content.sourceWidth * crop.x
+        width  : this.content.sourceSize.width * crop.width,
+        height : this.content.sourceSize.width * crop.height,
+        x      : this.content.sourceSize.width * crop.x,
+        y      : this.content.sourceSize.height * crop.y 
       };     
       
       this.content.setSize(box);
@@ -258,13 +184,57 @@ module Carbon {
       // Flip crop origin from top left to bottom left
 
       transformGroup.crop = {
-        x      : (Math.abs(Math.round(this.viewport.offset.left))) || 0,
-        y      : (Math.abs(Math.round(this.viewport.offset.top))) || 0,
+        x      : (Math.abs(Math.round(this.viewport.offset.x))) || 0,
+        y      : (Math.abs(Math.round(this.viewport.offset.y))) || 0,
         width  : this.viewport.width,
         height : this.viewport.height,
       };
 
       return transformGroup;
+    }
+    
+    _startDrag(e: MouseEvent) {
+      e.preventDefault();
+      
+      _.trigger(this.element, 'start', { instance: this });
+     
+      this.dragOrigin = new Point(e.clientX, e.clientY);
+      this.startOffset = this.viewport.offset;
+       
+      this.listeners.push(
+        new Observer(document, 'mousemove', this._moveDrag.bind(this), false),
+        new Observer(document, 'mouseup', this._endDrag.bind(this), false)  
+      );
+
+      this.element.classList.add('dragging');
+    }
+    
+    _moveDrag(e) {            
+      let multipler = 1; //  0.75;
+      
+      let distance = {
+        x: (e.clientX - this.dragOrigin.x) / multipler,
+        y: (e.clientY - this.dragOrigin.y) / multipler
+      };
+      
+      this.viewport.setOffset({
+        x : distance.x + this.startOffset.x,
+        y : distance.y + this.startOffset.y
+      });
+      
+      _.trigger(this.element, 'crop:change', {
+        instance: this
+      });
+    }
+
+    _endDrag(e) {
+      while (this.listeners.length > 0) {        
+        this.listeners.pop().stop();
+      }
+      
+      this.element.classList.remove('dragging');
+      
+      this.onEnd();
     }
   }
   
@@ -292,12 +262,9 @@ module Carbon {
     options: any;
     trackEl: HTMLElement;
     nubEl: HTMLElement;
-
-    dragging = false;
     trackWidth: number;
-
-    mousemoveListener = this.moveTo.bind(this);
-    mouseupListener = this.endDrag.bind(this);
+    
+    listeners: Observer[] = [];
     
     constructor(element: HTMLElement, options) {
       this.element = element;
@@ -317,21 +284,22 @@ module Carbon {
     startDrag(e: MouseEvent) {
       e.preventDefault();
 
-      this.dragging = true;
       this.moveTo(e);
       
-      document.addEventListener('mousemove', this.mousemoveListener, true);
-      document.addEventListener('mouseup', this.mouseupListener, true);
+      this.listeners.push(
+        new Observer(document, 'mousemove', this.moveTo.bind(this)),
+        new Observer(document, 'mouseup', this.endDrag.bind(this))
+      );
 
       if (this.options.start) this.options.start();
     }
 
     endDrag(e) {
       this.moveTo(e);
-      this.dragging = false;
       
-      document.removeEventListener('mousemove', this.mousemoveListener, true);
-      document.removeEventListener('mouseup', this.mouseupListener, true);
+      while (this.listeners.length > 0) {
+        this.listeners.pop().stop();
+      }
 
       if (this.options.end) this.options.end();
     }
@@ -361,7 +329,7 @@ module Carbon {
     content : ViewportContent;
 
     center = new Point(0, 0);
-    offset = { top: 0, left: 0 };
+    offset = new Point(0, 0);
     
     constructor(element: HTMLElement) {
       this.element = element;
@@ -377,94 +345,98 @@ module Carbon {
       this.width = width;
     }
 
-    setOffset(offset: { top: number, left: number }) {
-      if (offset.left > 0) {
-        offset.left = 0;
-      }
-
-      if (offset.top > 0) {
-        offset.top = 0;
-      }
-
-      var size = this.content.getScaledSize();
-      
-      let distanceToRightEdge = (size.width - this.width) + offset.left;
-    
-      if (distanceToRightEdge < 0) {
-       offset.left = - (size.width - this.width);
-      }
-
-      let distanceToBottomEdge = size.height - this.height + offset.top;
-
-      if (distanceToBottomEdge < 0) {
-        offset.top = - (size.height - this.height);
-      }
-
-      this.offset = offset;
+    setOffset(offset: Point) {
+      this.offset = this.clamp(offset);
      
       this.content._setOffset(this.offset);
       
-      let leftToCenter = - (this.offset.left) + (this.width / 2);
-      let topToCenter = - (this.offset.top) + (this.height / 2);
+      let leftToCenter = - (this.offset.x) + (this.width / 2);
+      let topToCenter = - (this.offset.y) + (this.height / 2);
       
-      this.center = new Point(
-        leftToCenter / size.width,
-        topToCenter / size.height
-      );
+      let size = this.content.getScaledSize();
+      
+      this.center = { 
+        x: leftToCenter / size.width,
+        y: topToCenter / size.height
+      };
+    }
+    
+    clamp(offset: Point) {            
+      if (offset.x > 0) {
+        offset.x = 0;
+      }
+
+      if (offset.y > 0) {
+        offset.y = 0;
+      }
+      
+      let size = this.content.getScaledSize();
+      
+      // outside viewport
+      let xOverflow = size.width - this.width;      
+      let yOverflow = size.height - this.height;
+     
+      if (-offset.x > xOverflow) {
+       offset.x = -xOverflow;
+      }
+
+      if (-offset.y > yOverflow) {
+        offset.y = -yOverflow;
+      }
+      
+      return offset;
     }
 
     recenter() {
-      var size = this.content.getScaledSize();
+      let size = this.content.getScaledSize();
       
       let x = size.width * this.center.x;
       let y = size.height * this.center.y;
       
-      let offset = {
-        left : - (((x * 2) - this.width) / 2),
-        top  : - (((y * 2) - this.height) / 2)
-      };
-      
-      this.setOffset(offset);
+      this.setOffset({
+        x: - (((x * 2) - this.width) / 2),
+        y: - (((y * 2) - this.height) / 2)
+      });
     }
   }
 
   class ViewportContent {
     element: HTMLElement;
     viewport: Viewport;
-    sourceWidth: number;
-    sourceHeight: number;
+    sourceSize: Size;
+
+    rotate = 0;
 
     scale = 1;
 
     relativeScale: LinearScale;
-    rotate: number;
 
-    offset: { top: number, left: number };
+    offset: Point;
     
     constructor(element: HTMLElement, viewport: Viewport) {
       this.element = element;
       this.viewport = viewport;
       
-      this.sourceWidth = parseInt(this.element.dataset['width'], 10);
-      this.sourceHeight = parseInt(this.element.dataset['height'], 10);
-
+      this.sourceSize = {
+        width  : parseInt(this.element.dataset['width'], 10),
+        height : parseInt(this.element.dataset['height'], 10)
+      };
+      
       this.relativeScale = new LinearScale([this.calculateMinScale(), 1]); // to the min & max sizes
     }
 
-    changeImage(image : IMedia) {
+  
+    setImage(image: Media) {
       this.element.style.backgroundImage = '';
 
-      this.sourceWidth = image.width;
-      this.sourceHeight = image.height;
-      
+      this.sourceSize = image;
+          
       this.element.dataset['width'] = image.width.toString();
       this.element.dataset['height'] = image.height.toString();
   
       this.element.style.width = image.width + 'px';
       this.element.style.height = image.height + 'px';
-            
       this.element.style.backgroundImage = `url('${image.url}')`;
-
       
       this.rotate = image.rotate;
 
@@ -479,8 +451,8 @@ module Carbon {
     // May be great than 1 (stretched)
     calculateMinScale(): number {
       let minScale: number;
-      let percentW = this.viewport.width / this.sourceWidth;
-      let percentH = this.viewport.height / this.sourceHeight;
+      let percentW = this.viewport.width / this.sourceSize.width;
+      let percentH = this.viewport.height / this.sourceSize.height;
       
       if (percentH < percentW) {
         minScale = percentW;
@@ -493,14 +465,14 @@ module Carbon {
     }
 
     setSize(size: Size) {
-      this.scale = size.width / this.sourceWidth;
+      this.scale = size.width / this.sourceSize.width;
       
       this.update();
       
       this.viewport.recenter();
     }
 
-    _setOffset(offset: { top: number, left: number}) {
+    _setOffset(offset: Point) {
       this.offset = offset;
         
       this.update();
@@ -514,18 +486,17 @@ module Carbon {
       this.viewport.recenter();
     }
     
-    getScaledSize() {      
-      // Scaled width & height
+    getScaledSize() {
       return { 
-        width  : Math.round(this.scale * this.sourceWidth),
-        height : Math.round(this.scale * this.sourceHeight)
+        width  : Math.round(this.scale * this.sourceSize.width),
+        height : Math.round(this.scale * this.sourceSize.height)
       };
     }
     
     update() {
       // translate(x, y)
       this.element.style.transformOrigin = '0 0';
-      this.element.style.transform = `scale(${this.scale}) translate(${this.offset.left / this.scale}px, ${this.offset.top / this.scale}px)`;
+      this.element.style.transform = `scale(${this.scale}) translate(${this.offset.x / this.scale}px, ${this.offset.y / this.scale}px)`;
     }
   }
 
@@ -548,7 +519,7 @@ module Carbon {
     }
   }
 
-  interface IMedia {
+  interface Media {
     width  : number;
     height : number;
     rotate : number;

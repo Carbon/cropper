@@ -33,10 +33,15 @@
   position: relative;
   left: 50%;
   height: 5px;
-  width: 5px
+  width: 5px;
   background-color: purple;
 }
 
+
+.cropper {
+  transform-origin: 0 0;
+  transform: scale(1);
+}
 
 /* JUNK */
 .cropper .get {

@@ -126,8 +126,7 @@
       
    Array.from(document.querySelectorAll('.cropper')).forEach(function(el) {
      var c = new Carbon.Cropper(el);
-     
-     c.center();
+    
      
      c.on('end', () => {
        console.log('end');
