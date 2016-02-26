@@ -57,7 +57,7 @@ module Carbon {
       else {
         this.viewport.anchorPoint = new Point(0.5, 0.5);      
         this.setRelativeScale(this.options.scale || 0);
-        this.viewport.centerTo(new Point(0.5, 0.5));     
+        this.viewport.centerAt(new Point(0.5, 0.5));     
       }
      
       if (this.content.calculateMinScale() > 1) {
