@@ -88,17 +88,21 @@ module Carbon {
         this.setTransform(transform);
       }
       else {
-    	 this.setScale(0);
+        this.viewport.anchorPoint = new Point(0.5, 0.5);
+      
+    	  this.setRelativeScale(0);
+        
+        this.viewport.recenter();
       }
     }
     
     center() {
-    	this.viewport.center = new Point(0.5, 0.5);
+    	this.viewport.anchorPoint = new Point(0.5, 0.5);
       
       this.viewport.recenter();
     }
 
-    setScale(value: number) {
+    setRelativeScale(value: number) {
       this.content.setRelativeScale(value);
       this.zoomer.setValue(value);
     }
@@ -144,7 +148,7 @@ module Carbon {
 
       let relativeScale = (transformGroup.resize.width - minWidth) / dif;
 
-      this.setScale(relativeScale);
+      this.setRelativeScale(relativeScale);
 
       this.viewport.setOffset({ 
         x: - transformGroup.crop.x,
@@ -468,8 +472,6 @@ module Carbon {
       this.scale = size.width / this.sourceSize.width;
       
       this.update();
-      
-      this.viewport.recenter();
     }
 
     _setOffset(offset: Point) {
