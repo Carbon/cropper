@@ -46,7 +46,7 @@ module Carbon {
         let zoomerEl = <HTMLElement>this.element.querySelector('.zoomer');
       
         this.zoomer = new Slider(zoomerEl, {
-          change : this.setScale.bind(this),
+          change : this.setRelativeScale.bind(this),
           end    : this.onSlideStop.bind(this)
         });
       }
@@ -56,8 +56,8 @@ module Carbon {
       }
       else {
         this.viewport.anchorPoint = new Point(0.5, 0.5);      
-        this.setScale(this.options.scale || 0);
-        this.viewport.recenter();     
+        this.setRelativeScale(this.options.scale || 0);
+        this.viewport.centerTo(new Point(0.5, 0.5));     
       }
      
       if (this.content.calculateMinScale() > 1) {
@@ -87,19 +87,15 @@ module Carbon {
       if (transform) {
         this.setTransform(transform);
       }
-      else {
-        this.viewport.anchorPoint = new Point(0.5, 0.5);
-      
+      else {      
     	  this.setRelativeScale(0);
         
-        this.viewport.recenter();
+        this.viewport.centerAt(new Point(0.5, 0.5));
       }
     }
     
-    center() {
-    	this.viewport.anchorPoint = new Point(0.5, 0.5);
-      
-      this.viewport.recenter();
+    center() {      
+      this.viewport.centerAt(new Point(0.5, 0.5));
     }
 
     setRelativeScale(value: number) {
@@ -392,11 +388,11 @@ module Carbon {
       return offset;
     }
 
-    recenter() {
+    centerAt(anchor: Point) {
       let size = this.content.getScaledSize();
       
-      let x = size.width * this.anchorPoint.x;
-      let y = size.height * this.anchorPoint.y;
+      let x = size.width * anchor.x;
+      let y = size.height * anchor.y;
       
       this.setOffset({
         x: - (((x * 2) - this.width) / 2),
@@ -485,7 +481,9 @@ module Carbon {
 
       this.scale = this.relativeScale.getValue(value); // Convert to absolute scale
       
-      this.viewport.recenter();
+      var anchor = this.viewport.anchorPoint;
+      
+      this.viewport.centerAt(anchor);
     }
     
     getScaledSize() {
