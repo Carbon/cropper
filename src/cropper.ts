@@ -270,7 +270,6 @@ module Carbon {
     options: any;
     trackEl: HTMLElement;
     nubEl: HTMLElement;
-    trackWidth: number;
     
     listeners: Observer[] = [];
     
@@ -285,13 +284,12 @@ module Carbon {
 
       this.nubEl.addEventListener('mousedown', this.startDrag.bind(this), true);
       this.nubEl.addEventListener('mouseup', this.endDrag.bind(this), true);
-
-      this.trackWidth = this.trackEl.clientWidth;      
     }
     
     startDrag(e: MouseEvent) {
       e.preventDefault();
-
+      e.stopPropagation();
+      
       this.moveTo(e);
       
       this.listeners.push(
@@ -315,7 +313,7 @@ module Carbon {
     setValue(value: number) {
       let nubWidth = this.nubEl.clientWidth;
 
-      let x = Math.floor((this.trackWidth - nubWidth) * value);
+      let x = Math.floor((this.trackEl.clientWidth - nubWidth) * value);
 
     	this.nubEl.style.left = x + 'px';
     }
