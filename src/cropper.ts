@@ -70,7 +70,7 @@ module Carbon {
         this.element.classList.add('stretched');
       }
 
-      Cropper.instances.set(element, this);
+      Cropper.instances.set(this.element, this);
     }
 
     onSlideStop() {
@@ -351,6 +351,8 @@ module Carbon {
 
       this.height = height;
       this.width = width;
+      
+      this.content.relativeScale = new LinearScale([this.content.calculateMinScale(), 1]);
     }
 
     setOffset(offset: Point) {
