@@ -1,6 +1,6 @@
 {
   "name": "cropper",
-  "version": "3.0.0",
+  "version": "3.0.1",
   "main": "lib/cropper.js",
   "author": "Jason Nelson",
   "license": "MIT",

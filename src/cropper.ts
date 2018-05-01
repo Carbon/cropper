@@ -272,7 +272,7 @@ module Carbon {
       }
 
       parts.push(this.resize.width + 'x' + this.resize.height);
-      parts.push(`crop(${this.crop.x},${this.crop.y},${this.crop.width},${this.crop.height}`));
+      parts.push(`crop(${this.crop.x},${this.crop.y},${this.crop.width},${this.crop.height})`);
 
       return parts.join('/');
     }
