@@ -1,4 +1,4 @@
-/* Copyright 2011-2016 Jason Nelson (@iamcarbon)
+/* Copyright 2011-2018 Jason Nelson (@iamcarbon)
    Free to use and modify under the MIT licence
    You must not remove this notice.
 */
@@ -88,7 +88,6 @@ module Carbon {
       this.element.addEventListener(type, listener, false);
     } 
 
-
     setImage(image: Media, transform?: string) {
     	this.content.setImage(image);
 
@@ -113,6 +112,8 @@ module Carbon {
 
     setTransform(text: string) {
       // 789x525/crop:273-191_240x140
+      // TODO: 789x525/crop(273,191,240,140)
+
       // rotate(90)/...
 
       let parts = text.split('/');
@@ -120,17 +121,29 @@ module Carbon {
       let transformGroup = new TransformGroup();
 
       for (var part of parts) {
-        if (part.indexOf(':') > -1) {
-          // Flip crop origin from top left to bottom left
+        if (part.startsWith('crop')) {
+          let cropValue = part.substring(5); // skip crop(
 
-          let cropValue = part.split(':')[1];
+          if (part[4] == '(') {
+            // crop()
+            let args = cropValue.substring(0, cropValue.length - 1).split(',');
 
-          transformGroup.crop = {
-            x      : parseInt(cropValue.split('_')[0].split('-')[0], 10),
-            y      : parseInt(cropValue.split('_')[0].split('-')[1], 10),
-            width  : parseInt(cropValue.split('_')[1].split('x')[0], 10),
-            height : parseInt(cropValue.split('_')[1].split('x')[1], 10)
-          };
+            transformGroup.crop = { 
+              x: parseInt(args[0], 10), 
+              y: parseInt(args[1], 10), 
+              width: parseInt(args[2], 10), 
+              height: parseInt(args[3], 10) 
+            };
+          }
+          else {
+            // crop:
+            transformGroup.crop = {
+              x      : parseInt(cropValue.split('_')[0].split('-')[0], 10),
+              y      : parseInt(cropValue.split('_')[0].split('-')[1], 10),
+              width  : parseInt(cropValue.split('_')[1].split('x')[0], 10),
+              height : parseInt(cropValue.split('_')[1].split('x')[1], 10)
+            };
+          }
         }
         else if (part.indexOf('x') > -1) {
           transformGroup.resize = {
@@ -259,7 +272,7 @@ module Carbon {
       }
 
       parts.push(this.resize.width + 'x' + this.resize.height);
-      parts.push(`crop:${this.crop.x}-${this.crop.y}_${this.crop.width}x${this.crop.height}`);
+      parts.push(`crop(${this.crop.x},${this.crop.y},${this.crop.width},${this.crop.height}`));
 
       return parts.join('/');
     }

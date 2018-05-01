@@ -1,11 +1,12 @@
 {
   "compilerOptions": {
-    "target": "es5",
+    "target": "ES6",
     "module": "commonjs",
     "removeComments": true,
-    "watch": false,
     "sourceMap": false,
-    "outDir": "lib/"
+    "alwaysStrict": true,
+    "outDir": "lib/",
+    "lib": [ "dom", "es5", "es6" ]
   },
   "files": [
     "src/cropper.ts"
