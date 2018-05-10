@@ -1,6 +1,7 @@
-/* Copyright 2011-2018 Jason Nelson (@iamcarbon)
-   Free to use and modify under the MIT licence
-   You must not remove this notice.
+/* 
+Copyright 2011-2018 Jason Nelson (@iamcarbon)
+Free to use and modify under the MIT licence
+You must not remove this notice.
 */
 
 module Carbon {
@@ -112,9 +113,7 @@ module Carbon {
 
     setTransform(text: string) {
       // 789x525/crop:273-191_240x140
-      // TODO: 789x525/crop(273,191,240,140)
-
-      // rotate(90)/...
+      // 789x525/crop(273,191,240,140)
 
       let parts = text.split('/');
 
@@ -151,9 +150,6 @@ module Carbon {
             height : parseInt(part.split('x')[1], 10)
           };
         }
-        else if (part.indexOf('rotate') > -1) {
-          transformGroup.rotate = parseInt(part.replace('rotate(', '').replace(')', ''), 10);
-        }
       }
 
       this.content.setSize(transformGroup.resize);
@@ -171,10 +167,6 @@ module Carbon {
         x: - transformGroup.crop.x,
         y: - transformGroup.crop.y 
       });
-
-      if (transformGroup.rotate) {
-        this.content.rotate = transformGroup.rotate;
-      }
 
       // stretch logic
       let stretched = this.viewport.content.calculateMinScale() > 1;
@@ -200,7 +192,6 @@ module Carbon {
       let transformGroup = new TransformGroup();
       
       transformGroup.resize = this.content.getScaledSize();
-      transformGroup.rotate = this.content.rotate;
 
       // Flip crop origin from top left to bottom left
 
@@ -260,16 +251,11 @@ module Carbon {
   }
   
   class TransformGroup {
-    rotate: number;
     resize: Size;
     crop: Rectangle;
 
     toString() {
       let parts = [];
-
-      if (this.rotate) {
-        parts.push(`rotate(${this.rotate})`);
-      }
 
       parts.push(this.resize.width + 'x' + this.resize.height);
       parts.push(`crop(${this.crop.x},${this.crop.y},${this.crop.width},${this.crop.height})`);
@@ -426,11 +412,7 @@ module Carbon {
     element: HTMLElement;
     viewport: Viewport;
     sourceSize: Size;
-
-    rotate = 0;
-
     scale = 1;
-
     relativeScale: LinearScale;
 
     offset: Point;
@@ -459,8 +441,6 @@ module Carbon {
       this.element.style.height = image.height + 'px';
       this.element.style.backgroundImage = `url('${image.url}')`;
       
-      this.rotate = image.rotate;
-
       this.relativeScale = new LinearScale([this.calculateMinScale(), 1]);
       
       this.setSize(image);
@@ -543,7 +523,6 @@ module Carbon {
   interface Media {
     width  : number;
     height : number;
-    rotate : number;
     url    : string;
   }
 
