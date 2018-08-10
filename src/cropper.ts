@@ -1,6 +1,6 @@
 /* 
 Copyright 2011-2018 Jason Nelson (@iamcarbon)
-Free to use and modify under the MIT licence
+Free to use and modify under the MIT licence.
 You must not remove this notice.
 */
 
@@ -33,9 +33,8 @@ module Carbon {
       this.element = element;
       
       let contentEl = <HTMLElement>this.element.querySelector('.content');      
-      let viewportEl = <HTMLElement>this.element.querySelector('.viewport');
       
-      this.viewport = new Viewport(viewportEl);
+      this.viewport = new Viewport(this.element.querySelector('.viewport'));
       this.content  = new ViewportContent(contentEl, this.viewport);
 
       this.viewport.content = this.content;
@@ -51,11 +50,13 @@ module Carbon {
       }
       else {
         let zoomerEl = <HTMLElement>this.element.querySelector('.zoomer');
-      
-        this.zoomer = new Slider(zoomerEl, {
-          change : this.setRelativeScale.bind(this),
-          end    : this.onSlideStop.bind(this)
-        });
+
+        if (zoomerEl) {
+          this.zoomer = new Slider(zoomerEl, {
+            change : this.setRelativeScale.bind(this),
+            end    : this.onSlideStop.bind(this)
+          });
+        }
       }
       
       if (this.element.dataset['transform']) {
@@ -79,7 +80,7 @@ module Carbon {
     }
 
     onEnd() {
-      _.trigger(this.element, 'end', {
+      trigger(this.element, 'end', {
         instance  : this,
         transform : this.getTransform().toString()
       });
@@ -112,7 +113,6 @@ module Carbon {
     }
 
     setTransform(text: string) {
-      // 789x525/crop:273-191_240x140
       // 789x525/crop(273,191,240,140)
 
       let parts = text.split('/');
@@ -120,29 +120,21 @@ module Carbon {
       let transformGroup = new TransformGroup();
 
       for (var part of parts) {
-        if (part.startsWith('crop')) {
-          let cropValue = part.substring(5); // skip crop(
+        if (part.startsWith('crop(')) {
+          // crop({args})
+          
+          var argList = part.substring(5, part.length - 1);
 
-          if (part[4] == '(') {
-            // crop()
-            let args = cropValue.substring(0, cropValue.length - 1).split(',');
+          let args = argList.split(',');
 
-            transformGroup.crop = { 
-              x: parseInt(args[0], 10), 
-              y: parseInt(args[1], 10), 
-              width: parseInt(args[2], 10), 
-              height: parseInt(args[3], 10) 
-            };
-          }
-          else {
-            // crop:
-            transformGroup.crop = {
-              x      : parseInt(cropValue.split('_')[0].split('-')[0], 10),
-              y      : parseInt(cropValue.split('_')[0].split('-')[1], 10),
-              width  : parseInt(cropValue.split('_')[1].split('x')[0], 10),
-              height : parseInt(cropValue.split('_')[1].split('x')[1], 10)
-            };
-          }
+          transformGroup.crop = { 
+            x: parseInt(args[0], 10), 
+            y: parseInt(args[1], 10), 
+            width: parseInt(args[2], 10), 
+            height: parseInt(args[3], 10) 
+          };
+          
+          
         }
         else if (part.indexOf('x') > -1) {
           transformGroup.resize = {
@@ -208,7 +200,7 @@ module Carbon {
     _startDrag(e: MouseEvent) {
       e.preventDefault();
       
-      _.trigger(this.element, 'start', { instance: this });
+      trigger(this.element, 'start', { instance: this });
      
       this.dragOrigin = new Point(e.clientX, e.clientY);
       this.startOffset = this.viewport.offset;
@@ -221,25 +213,23 @@ module Carbon {
       this.element.classList.add('dragging');
     }
     
-    _moveDrag(e) {            
-      let multipler = 1; //  0.75;
-      
-      let distance = {
-        x: (e.clientX - this.dragOrigin.x) / multipler,
-        y: (e.clientY - this.dragOrigin.y) / multipler
+    _moveDrag(e: PointerEvent) {            
+      let delta = {
+        x: (e.clientX - this.dragOrigin.x),
+        y: (e.clientY - this.dragOrigin.y)
       };
       
       this.viewport.setOffset({
-        x : distance.x + this.startOffset.x,
-        y : distance.y + this.startOffset.y
+        x : delta.x + this.startOffset.x,
+        y : delta.y + this.startOffset.y
       });
       
-      _.trigger(this.element, 'crop:change', {
+      trigger(this.element, 'crop:change', {
         instance: this
       });
     }
 
-    _endDrag(e) {
+    _endDrag(e: PointerEvent) {
       while (this.listeners.length > 0) {        
         this.listeners.pop().stop();
       }
@@ -268,15 +258,15 @@ module Carbon {
     element: HTMLElement;
     options: any;
     trackEl: HTMLElement;
-    nubEl: HTMLElement;
+    nubEl: HTMLElement; // handle???
     
     listeners: Observer[] = [];
     
     constructor(element: HTMLElement, options) {
       this.element = element;
       this.options = options || {};
-      this.trackEl = <HTMLElement>this.element.querySelector('.track');
-      this.nubEl = <HTMLElement>this.element.querySelector('.nub');
+      this.trackEl = this.element.querySelector('.track');
+      this.nubEl = this.element.querySelector('.nub');
 
       this.trackEl.addEventListener('mousedown', this.startDrag.bind(this), true);
       this.trackEl.addEventListener('mouseup', this.endDrag.bind(this), true);
@@ -306,7 +296,9 @@ module Carbon {
         this.listeners.pop().stop();
       }
 
-      if (this.options.end) this.options.end();
+      if (this.options.end) {
+        this.options.end();
+      }
     }
 
     setValue(value: number) {
@@ -322,7 +314,9 @@ module Carbon {
 
       this.nubEl.style.left = (position * 100) + '%';
 
-      if (this.options.change) this.options.change(position);
+      if (this.options.change) {
+        this.options.change(position);
+      }
     }
   }
 
@@ -367,7 +361,6 @@ module Carbon {
         y: topToCenter / size.height
       };
     }
-   
     
     clamp(offset: Point) {
       if (offset.x > 0) {
@@ -426,6 +419,8 @@ module Carbon {
         height : parseInt(this.element.dataset['height'], 10)
       };
       
+      this.element.style.transformOrigin = '0 0';
+
       this.relativeScale = new LinearScale([this.calculateMinScale(), 1]); // to the min & max sizes
     }
 
@@ -496,7 +491,6 @@ module Carbon {
     
     update() {
       // translate(x, y)
-      this.element.style.transformOrigin = '0 0';
       this.element.style.transform = `scale(${this.scale}) translate(${this.offset.x / this.scale}px, ${this.offset.y / this.scale}px)`;
     }
   }
@@ -506,8 +500,8 @@ module Carbon {
     range: Array<number>;
 
     constructor(domain: Array<number>) {
-      this.domain = domain || [0, 1];
-      this.range = [0, 1]; // Always 0-1
+      this.domain = domain || [ 0, 1 ];
+      this.range = [ 0, 1 ]; // Always 0-1
     }
 
     getValue(value: number) : number {
@@ -543,7 +537,7 @@ module Carbon {
                 public y: number) { }
   }
 
-  var Util = {
+  let Util = {
     getRelativePosition(x: number, relativeElement: HTMLElement) {
       return Math.max(0, Math.min(1, (x - this.findPosX(relativeElement)) / relativeElement.offsetWidth));
     },
@@ -559,13 +553,13 @@ module Carbon {
     }
   };
 
-  module _ {
-    export function trigger(element: Element, name: string, detail?) : boolean {
-      return element.dispatchEvent(new CustomEvent(name, {
-        bubbles: true,
-        detail: detail
-      }));
-    }
+  function trigger(element: Element, name: string, detail?) : boolean {
+    let e = new CustomEvent(name, {
+      bubbles: true,
+      detail: detail
+    });
+
+    return element.dispatchEvent(e);
   }
   
   class Observer {

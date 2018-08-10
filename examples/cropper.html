@@ -16,11 +16,11 @@
 <body>
   
   <div style="z-index:10000;">
-   <input id="transform" style="font-size:18px;width:300px;" value="789x525/crop:273-191_240x140" />
+   <input id="transform" style="font-size:18px;width:300px;" value="789x525/crop(273,191,240,140)" />
 
-    <input type="submit" value="set" onclick="setTransform($('#transform').val());" />
+    <input type="submit" value="set" onclick="setTransform(document.getElementById('transform').value);" />
     
-        <input type="submit" value="center" onclick="center()" />
+    <input type="submit" value="center" onclick="center()" />
   </div>
   
   <div class="cropper" style="width: 480px; height: 360px;">
