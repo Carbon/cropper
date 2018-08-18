@@ -32,7 +32,7 @@ module Carbon {
     constructor(element: HTMLElement, options?) {
       this.element = element;
       
-      let contentEl = <HTMLElement>this.element.querySelector('.content');      
+      let contentEl: HTMLElement = this.element.querySelector('.content');      
       
       this.viewport = new Viewport(this.element.querySelector('.viewport'));
       this.content  = new ViewportContent(contentEl, this.viewport);
@@ -49,7 +49,7 @@ module Carbon {
         this.zoomer = options.zoomer;
       }
       else {
-        let zoomerEl = <HTMLElement>this.element.querySelector('.zoomer');
+        let zoomerEl: HTMLElement = this.element.querySelector('.zoomer');
 
         if (zoomerEl) {
           this.zoomer = new Slider(zoomerEl, {
@@ -57,7 +57,7 @@ module Carbon {
             end    : this.onSlideStop.bind(this)
           });
         }
-      }
+      }      
       
       if (this.element.dataset['transform']) {
         this.setTransform(this.element.dataset['transform']);
@@ -109,7 +109,7 @@ module Carbon {
 
     setRelativeScale(value: number) {
       this.content.setRelativeScale(value);
-      this.zoomer.setValue(value);
+      this.zoomer.value = value;
     }
 
     setTransform(text: string) {
@@ -199,6 +199,9 @@ module Carbon {
     
     _startDrag(e: MouseEvent) {
       e.preventDefault();
+      e.stopPropagation();
+
+      if (e.which === 3) return;
       
       trigger(this.element, 'start', { instance: this });
      
@@ -254,28 +257,27 @@ module Carbon {
     }
   }
 
-  export class Slider {
+  class Slider {
     element: HTMLElement;
     options: any;
     trackEl: HTMLElement;
-    nubEl: HTMLElement; // handle???
+    handleEl: HTMLElement; 
     
     listeners: Observer[] = [];
     
     constructor(element: HTMLElement, options) {
       this.element = element;
       this.options = options || {};
-      this.trackEl = this.element.querySelector('.track');
-      this.nubEl = this.element.querySelector('.nub');
+      this.trackEl = this.element.querySelector('.track') || this.element;
+      this.handleEl = this.element.querySelector('.nub, .handle');
 
       this.trackEl.addEventListener('mousedown', this.startDrag.bind(this), true);
-      this.trackEl.addEventListener('mouseup', this.endDrag.bind(this), true);
-
-      this.nubEl.addEventListener('mousedown', this.startDrag.bind(this), true);
-      this.nubEl.addEventListener('mouseup', this.endDrag.bind(this), true);
     }
     
     startDrag(e: MouseEvent) {
+      // ingore left click
+      if (e.which === 3) return;
+
       e.preventDefault();
       e.stopPropagation();
       
@@ -290,6 +292,9 @@ module Carbon {
     }
 
     endDrag(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      
       this.moveTo(e);
       
       while (this.listeners.length > 0) {
@@ -301,18 +306,18 @@ module Carbon {
       }
     }
 
-    setValue(value: number) {
-      let nubWidth = this.nubEl.clientWidth;
+    set value(value: number) {
+      let nubWidth = this.handleEl.clientWidth;
 
       let x = Math.floor((this.trackEl.clientWidth - nubWidth) * value);
 
-    	this.nubEl.style.left = x + 'px';
+      this.handleEl.style.left = x + 'px';
     }
 
     moveTo(e: MouseEvent) {
-      let position = Util.getRelativePosition(e.pageX, this.trackEl);
+      let position = _.getRelativePosition(e.pageX, this.trackEl);
 
-      this.nubEl.style.left = (position * 100) + '%';
+      this.handleEl.style.left = (position * 100) + '%';
 
       if (this.options.change) {
         this.options.change(position);
@@ -537,7 +542,7 @@ module Carbon {
                 public y: number) { }
   }
 
-  let Util = {
+  let _ = {
     getRelativePosition(x: number, relativeElement: HTMLElement) {
       return Math.max(0, Math.min(1, (x - this.findPosX(relativeElement)) / relativeElement.offsetWidth));
     },
