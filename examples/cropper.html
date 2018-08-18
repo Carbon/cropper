@@ -26,8 +26,11 @@
       </div>
 
       <span class="zoomer">
-			 <span class="track"></span>
-			 <span class="nub">x</span>
+
+			 	<span class="track">
+					<span class="nub"></span>
+			 	</span>
+			 
 		  </span>
     </div>
     
@@ -40,8 +43,11 @@
 		</div>
 
 		<span class="zoomer">
-			<span class="track"></span>
-			<span class="nub">x</span>
+			<span class="track">
+
+					<span class="nub"></span>
+			</span>
+			
 		</span>
 
 		<span class="get">get</span>
@@ -129,7 +135,9 @@
        console.log('end');
        
        document.getElementById('transform').value = c.getTransform();
-     })
+		 })
+		 
+		 window.c = c;
      
    });
 	</script>
