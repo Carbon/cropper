@@ -1,7 +1,9 @@
 <!DOCTYPE html>
 <html>
 <head>  
+	<script src="https://static.cmcdn.net/libs/corejs/2.1.0/corejs.js"></script>
 	<script src="../lib/cropper.js"></script>
+
 
   <link rel="stylesheet" type="text/css" href="../assets/cropper.css" />
   
@@ -11,114 +13,97 @@
 </head>
 
 <body>
-  
-  <div style="z-index:10000;">
-   <input id="transform" style="font-size:18px;width:300px;" value="789x525/crop(273,191,240,140)" />
+	
+  <div style="z-index:10000;position:fixed;top:0;left:0;">
+   	<input id="transform" style="font-size:18px;width:300px;" value="1918x1918/crop(0,0,480,360)" />
+   	<input id="transform2" style="font-size:18px;width:300px;" value="" />
 
     <input type="submit" value="set" onclick="setTransform(document.getElementById('transform').value);" />
     
-    <input type="submit" value="center" onclick="center()" />
-  </div>
-  
-  <div class="cropper" style="width: 480px; height: 360px;">
-      <div class="viewport" style="width: 480px; height: 360px;">
-         <div class="content" style="width: 2000px; height: 840px; transform-origin: 0px 0px 0px; transform: scale(0.428571) translate(-167px, 0px); background-image: url(&quot;https://cmmedia.global.ssl.fastly.net/08653df563de7b581bd0/30533711/2000x840.png&quot;);" data-width="2000" data-height="840"></div>
-      </div>
+		<input type="submit" value="center" onclick="center(0.5)" />
+		
+		<br />
 
-      <span class="zoomer">
+		<input id="scaleInput" name="scale" value="1" />
+		<input type="submit" onclick="setScale(document.getElementById('scaleInput').value)" value="set scale" />
 
-			 	<span class="track">
-					<span class="nub"></span>
-			 	</span>
-			 
-		  </span>
-    </div>
-    
-    <br /> <br />
-    
-  <div class="cropper" style="background-color:#000;width:240px;height:140px;">
+		<br />
 
-		<div class="viewport">
-  		<div class="content" data-width="905" data-height="603" style="width:905px;height:603px;background-image:url('http://media.cmcdn.net/13367932.jpeg');background-sizing:cover;"></div>
+		<button onclick="updateSource('https://storage.borg.cloud/daa70379cd/kZ9RxVJ7JOYfmpf8uLbplJ;2000x2000.png');">UPDATE SOURCE</button>
+	</div>
+	
+	<div style="height:100px"></div>
+	
+	<div class="cropper" style="width: 480px; height: 360px;margin:auto;">
+		<div class="viewport" style="width: 480px; height: 360px;">
+				<div class="content" style="width: 2000px; height: 2000px; background-image: url('https://storage.borg.cloud/daa70379cd/kZ9RxVJ7JOYfmpf8uLbplJ;2000x2000.png');"></div>
 		</div>
 
 		<span class="zoomer">
 			<span class="track">
-
-					<span class="nub"></span>
+				<span class="handle"></span>
 			</span>
-			
 		</span>
-
-		<span class="get">get</span>
 	</div>
-  
-    <!--
-      
-  <br />
-  <br />
-  
-	<div class="cropper" style="width:800px;height:400px;">
-		<div class="viewport">
-			<img class="content" src="http://media.cmcdn.net/3315168/750x947.jpeg" style="width:740px;height:947px;" data-height="947" data-width="750" />
+
+
+	<div style="height:100px"></div>
+	
+	<div class="cropper" style="width: 480px; height: 360px;margin:auto;">
+		<div class="viewport" style="width: 480px; height: 360px;">
+				<div class="content" style="width: 2000px; height: 840px; transform-origin: 0px 0px 0px; transform: scale(0.428571) translate(-167px, 0px); background-image: url(&quot;https://cmmedia.global.ssl.fastly.net/08653df563de7b581bd0/30533711/2000x840.png&quot;);"></div>
 		</div>
 
 		<span class="zoomer">
-			<span class="track"></span>
-			<span class="nub" style="width:50px;display:inline-block;background-color:red;">x</span>
+			<span class="track">
+				<span class="handle"></span>
+			</span>
 		</span>
 	</div>
-
-	<div style="height:100px;"></div>
-
- 
-
-	<p id="debug">DEBUG</p>
-
-
-<div id="wrapper">
-	<img id="preview" src="http://media.cmcdn.net/13367932/240x140-c.jpeg" />
-
-	<div id="cropper1" class="cropper" style="background-color:#000;width:240px;height:140px;">
-
-		<div class="viewport">
-  		<img src="http://media.cmcdn.net/13367932.jpeg" class="content" data-width="905" data-height="603" style="width: 678px; height: 452px; ">
-		</div>
-
-		<span class="zoomer">
-			<span class="track"></span>
-			<span class="nub">x</span>
-		</span>
-
-		<span class="get">get</span>
-	</div>
-
-	<br clear="both" />
-  
-	<hr />
-
-	<div class="cropper" style="width:500px;">
-
-		<div class="viewport" style="width:500px;height:500px;background-color:#000">
-			<img class="content" src="http://media.cmcdn.net/3315168/750x947.jpeg" style="width:740px;height:947px;" data-height="947" data-width="750" />
-		</div>
-
-		<span class="zoomer">
-			<span class="track"></span>
-			<span class="nub">x</span>
-		</span>
-	</div>
-
-
-		<span class="swap">Swap</span>
-    -->
     
+	<div style="height:100px"></div>
+	
+  <div class="cropper" style="background-color:#000;width:240px;height:140px;">
+
+		<div class="viewport">
+  		<div class="content" style="width:905px;height:603px;background-image:url('http://media.cmcdn.net/13367932.jpeg');background-size:cover;"></div>
+		</div>
+
+		<span class="zoomer">
+			<span class="track">
+				<span class="handle"></span>
+			</span>
+		</span>
+
+		<span class="get">get</span>
+	</div>
+  
 	<script>
-   
+	 function updateSource(url) {
+		 var img = new Image();
+
+		 var c = Carbon.Cropper.get(document.querySelector('.cropper'));
+		 
+		 img.onload = function() {
+		 	c.setImage({ url: img.src, width: img.width, height: img.height });
+		 };
+
+		 img.src = url;
+	 }
+	 
    function setTransform(val) {
+
+		console.log('set transform:' + val);
+
      var c = Carbon.Cropper.get(document.querySelector('.cropper'));
      
      c.setTransform(val);
+	 }
+	 
+	 function setScale(val) {
+			var c = Carbon.Cropper.get(document.querySelector('.cropper'));
+
+     c.setRelativeScale(Number.parseFloat(val));
    }
 
    function center(val) {
@@ -129,17 +114,45 @@
       
    Array.from(document.querySelectorAll('.cropper')).forEach(function(el) {
      var c = new Carbon.Cropper(el);
-    
-     
-     c.on('end', () => {
-       console.log('end');
-       
-       document.getElementById('transform').value = c.getTransform();
+		
+		 c.on('change', e => {
+       console.log('change', e);       
+		 })
+
+     c.on('end', e => {
+       console.log('end', e);
+			 
+			 console.log(e.instance.getTransform());
+			 
+			 document.getElementById('transform').value = c.getTransform();
+			 // document.getElementById('transform2').value = c.getTransform().toPercentages(e.instance.viewport.content);
+
 		 })
 		 
 		 window.c = c;
      
-   });
+	 });
+	 
+	 /*
+			toPercentages(source) {
+      var result = new MediaPipeline();
+
+      result.resize = {
+        width: this.resize.width / source.width,
+        height: this.resize.height / source.height
+      };
+
+      result.crop = {
+        x: this.crop.x / this.resize.width,
+        y: this.crop.y / this.resize.height,
+        width: this.crop.width / this.resize.width,
+        height: this.crop.height / this.resize.height
+      }
+
+  
+      return result;
+		}
+		*/
 	</script>
 </div><!-- /Wrapper -->
 

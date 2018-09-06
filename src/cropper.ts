@@ -22,7 +22,8 @@ module Carbon {
     options: CropperOptions;
     
     listeners: Observer[] = [ ];
-    
+    reactive = new Carbon.Reactive();
+
     static instances = new WeakMap<HTMLElement, Cropper>();
     
     static get(element: HTMLElement) {  
@@ -31,20 +32,16 @@ module Carbon {
     
     constructor(element: HTMLElement, options?) {
       this.element = element;
-      
-      let contentEl: HTMLElement = this.element.querySelector('.content');      
-      
+            
       this.viewport = new Viewport(this.element.querySelector('.viewport'));
-      this.content  = new ViewportContent(contentEl, this.viewport);
+      this.content  = new ViewportContent(this.element.querySelector('.content'), this.viewport);
 
       this.viewport.content = this.content;
 
       this.options = options || { };
 
-      this.viewport.element.addEventListener('mousedown', this._startDrag.bind(this), true);
+      this.viewport.element.addEventListener('mousedown', this.startDrag.bind(this), true);
       
-      contentEl.style.cursor = 'grab';
-
       if (this.options.zoomer) {
         this.zoomer = options.zoomer;
       }
@@ -80,14 +77,15 @@ module Carbon {
     }
 
     onEnd() {
-      trigger(this.element, 'end', {
-        instance  : this,
-        transform : this.getTransform().toString()
+      this.reactive.trigger({
+        type      : 'end',
+        transform : this.getTransform().toString(),
+        instance  : this
       });
     }
     
-    on(type: string, listener: EventListener) {
-      this.element.addEventListener(type, listener, false);
+    on(type: string, callback: Function) {
+      return this.reactive.on(type, callback);
     } 
 
     setImage(image: Media, transform?: string) {
@@ -112,52 +110,56 @@ module Carbon {
       this.zoomer.value = value;
     }
 
-    setTransform(text: string) {
+    setTransform(transform: string | CropTransform) {
       // 789x525/crop(273,191,240,140)
 
-      let parts = text.split('/');
+    
+      // 911x911/crop(281,292,480,360)
+      // 1822x1822/crop(562,584,960,720)
 
-      let transformGroup = new TransformGroup();
+      let pipeline: CropTransform;
 
-      for (var part of parts) {
-        if (part.startsWith('crop(')) {
-          // crop({args})
-          
-          var argList = part.substring(5, part.length - 1);
-
-          let args = argList.split(',');
-
-          transformGroup.crop = { 
-            x: parseInt(args[0], 10), 
-            y: parseInt(args[1], 10), 
-            width: parseInt(args[2], 10), 
-            height: parseInt(args[3], 10) 
-          };
-          
-          
-        }
-        else if (part.indexOf('x') > -1) {
-          transformGroup.resize = {
-            width  : parseInt(part.split('x')[0], 10),
-            height : parseInt(part.split('x')[1], 10)
-          };
-        }
+      if (typeof transform === 'string') {      
+        pipeline = CropTransform.parse(transform);
+      }
+      else {
+        pipeline = transform;
       }
 
-      this.content.setSize(transformGroup.resize);
+      if (pipeline.crop.width != this.viewport.width) {
+        let sourceAspect = pipeline.crop.width / pipeline.crop.height;
+        let targetAspect = this.viewport.width / this.viewport.height;
 
-      let minWidth = this.content.calculateMinScale() * this.content.sourceSize.width;
-      let maxWidth = this.content.sourceSize.width;
+        if (sourceAspect != targetAspect) {
+          console.log('MISMATCHED ASPECT', sourceAspect, targetAspect);
+        }
+
+        let scale = pipeline.crop.width / this.viewport.width;
+
+        console.log('updated scale to fit viewport', scale);
+
+        pipeline.crop.width /= scale;
+        pipeline.crop.height /= scale;
+        pipeline.crop.x /= scale;
+        pipeline.crop.y /= scale;
+        pipeline.resize.width /= scale;
+        pipeline.resize.height /= scale;
+      }
+      
+      this.content.setSize(pipeline.resize);
+
+      let minWidth = this.content.calculateMinScale() * this.content.width;
+      let maxWidth = this.content.width;
 
       let dif = maxWidth - minWidth;
 
-      let relativeScale = (transformGroup.resize.width - minWidth) / dif;
+      let relativeScale = (pipeline.resize.width - minWidth) / dif;
 
       this.setRelativeScale(relativeScale);
 
       this.viewport.setOffset({ 
-        x: - transformGroup.crop.x,
-        y: - transformGroup.crop.y 
+        x: - pipeline.crop.x,
+        y: - pipeline.crop.y 
       });
 
       // stretch logic
@@ -165,15 +167,15 @@ module Carbon {
 
       this.element.classList[stretched ? 'add' : 'remove']('stretched');
 
-      return transformGroup;
+      return pipeline;
     }
 
     set(crop: Rectangle) {
       let box = { 
-        width  : this.content.sourceSize.width * crop.width,
-        height : this.content.sourceSize.width * crop.height,
-        x      : this.content.sourceSize.width * crop.x,
-        y      : this.content.sourceSize.height * crop.y 
+        width  : this.content.width * crop.width,
+        height : this.content.width * crop.height,
+        x      : this.content.width * crop.x,
+        y      : this.content.height * crop.y 
       };     
       
       this.content.setSize(box);
@@ -181,42 +183,47 @@ module Carbon {
     }
     
     getTransform() {
-      let transformGroup = new TransformGroup();
+      let result = new CropTransform();
       
-      transformGroup.resize = this.content.getScaledSize();
+      result.resize = this.content.getScaledSize();
 
       // Flip crop origin from top left to bottom left
 
-      transformGroup.crop = {
-        x      : (Math.abs(Math.round(this.viewport.offset.x))) || 0,
-        y      : (Math.abs(Math.round(this.viewport.offset.y))) || 0,
-        width  : this.viewport.width,
-        height : this.viewport.height,
+      result.crop = {
+        x      : Math.abs(Math.round(this.viewport.offset.x)) || 0,
+        y      : Math.abs(Math.round(this.viewport.offset.y)) || 0,
+        width  : Math.round(this.viewport.width),
+        height : Math.round(this.viewport.height),
       };
 
-      return transformGroup;
+      return result;
     }
     
-    _startDrag(e: MouseEvent) {
+    private startDrag(e: MouseEvent) {
       e.preventDefault();
       e.stopPropagation();
 
       if (e.which === 3) return;
       
-      trigger(this.element, 'start', { instance: this });
-     
+      this.reactive.trigger({
+        type      : 'start',
+        instance  : this
+      });
+
       this.dragOrigin = new Point(e.clientX, e.clientY);
       this.startOffset = this.viewport.offset;
        
       this.listeners.push(
-        new Observer(document, 'mousemove', this._moveDrag.bind(this), false),
-        new Observer(document, 'mouseup', this._endDrag.bind(this), false)  
+        new Observer(document, 'mousemove', this.moveDrag.bind(this), false),
+        new Observer(document, 'mouseup', this.endDrag.bind(this), false)  
       );
 
       this.element.classList.add('dragging');
+
+      this.viewport.element.style.cursor = 'grabbing';
     }
     
-    _moveDrag(e: PointerEvent) {            
+    private moveDrag(e: PointerEvent) {            
       let delta = {
         x: (e.clientX - this.dragOrigin.x),
         y: (e.clientY - this.dragOrigin.y)
@@ -227,26 +234,62 @@ module Carbon {
         y : delta.y + this.startOffset.y
       });
       
-      trigger(this.element, 'crop:change', {
-        instance: this
+      this.reactive.trigger({
+        type      : 'change',
+        instance : this
       });
     }
 
-    _endDrag(e: PointerEvent) {
+    private endDrag(e: PointerEvent) {
       while (this.listeners.length > 0) {        
         this.listeners.pop().stop();
       }
       
+      this.viewport.element.style.cursor = 'grab';
+
       this.element.classList.remove('dragging');
       
       this.onEnd();
     }
   }
   
-  class TransformGroup {
+  export class CropTransform {
     resize: Size;
     crop: Rectangle;
 
+    static parse(text: string) {
+      var result = new CropTransform();
+
+      let parts = text.split('/');
+      
+      for (var part of parts) {
+        if (part.startsWith('crop(')) {
+          // crop({args})
+          
+          let args = part.substring(5, part.length - 1).split(',');
+
+          result.crop = { 
+            x      : parseInt(args[0]), 
+            y      : parseInt(args[1]), 
+            width  : parseInt(args[2]), 
+            height : parseInt(args[3]) 
+          };          
+        }
+        else if (part.indexOf('x') > -1) {
+          // 100x100
+          let args = part.split('x');
+
+          result.resize = {
+            width  : parseInt(args[0]),
+            height : parseInt(args[1])
+          };
+        }
+      }
+
+      console.log('parse', result);
+
+      return result;
+    }
     toString() {
       let parts = [];
 
@@ -269,7 +312,7 @@ module Carbon {
       this.element = element;
       this.options = options || {};
       this.trackEl = this.element.querySelector('.track') || this.element;
-      this.handleEl = this.element.querySelector('.nub, .handle');
+      this.handleEl = this.element.querySelector('.handle');
 
       this.trackEl.addEventListener('mousedown', this.startDrag.bind(this), true);
     }
@@ -307,9 +350,9 @@ module Carbon {
     }
 
     set value(value: number) {
-      let nubWidth = this.handleEl.clientWidth;
+      let handleWidth = this.handleEl.clientWidth;
 
-      let x = Math.floor((this.trackEl.clientWidth - nubWidth) * value);
+      let x = Math.floor((this.trackEl.clientWidth - handleWidth) * value);
 
       this.handleEl.style.left = x + 'px';
     }
@@ -339,6 +382,8 @@ module Carbon {
       this.element = element;
       this.height  = this.element.clientHeight;
       this.width   = this.element.clientWidth;
+
+      this.element.style.cursor = 'grab';
     }
 
     setSize(width: number, height: number) {
@@ -409,34 +454,30 @@ module Carbon {
   class ViewportContent {
     element: HTMLElement;
     viewport: Viewport;
-    sourceSize: Size;
     scale = 1;
     relativeScale: LinearScale;
-
     offset: Point;
+    width: number;
+    height: number;
     
     constructor(element: HTMLElement, viewport: Viewport) {
       this.element = element;
       this.viewport = viewport;
       
-      this.sourceSize = {
-        width  : parseInt(this.element.dataset['width'], 10),
-        height : parseInt(this.element.dataset['height'], 10)
-      };
+      this.width  = this.element.scrollWidth;
+      this.height = this.element.scrollHeight;
       
       this.element.style.transformOrigin = '0 0';
 
       this.relativeScale = new LinearScale([this.calculateMinScale(), 1]); // to the min & max sizes
     }
 
-    setImage(image: Media) {
+    setImage(image: Media) {      
       this.element.style.backgroundImage = '';
 
-      this.sourceSize = image;
-          
-      this.element.dataset['width'] = image.width.toString();
-      this.element.dataset['height'] = image.height.toString();
-  
+      this.width = image.width;
+      this.height = image.height;
+
       this.element.style.width = image.width + 'px';
       this.element.style.height = image.height + 'px';
       this.element.style.backgroundImage = `url('${image.url}')`;
@@ -452,8 +493,8 @@ module Carbon {
     // May be great than 1 (stretched)
     calculateMinScale(): number {
       let minScale: number;
-      let percentW = this.viewport.width / this.sourceSize.width;
-      let percentH = this.viewport.height / this.sourceSize.height;
+      let percentW = this.viewport.width / this.width;
+      let percentH = this.viewport.height / this.height;
       
       if (percentH < percentW) {
         minScale = percentW;
@@ -466,7 +507,7 @@ module Carbon {
     }
 
     setSize(size: Size) {
-      this.scale = size.width / this.sourceSize.width;
+      this.scale = size.width / this.width;
       
       this.update();
     }
@@ -489,8 +530,8 @@ module Carbon {
     
     getScaledSize() {
       return { 
-        width  : Math.round(this.scale * this.sourceSize.width),
-        height : Math.round(this.scale * this.sourceSize.height)
+        width  : Math.round(this.scale * this.width),
+        height : Math.round(this.scale * this.height)
       };
     }
     
@@ -557,15 +598,6 @@ module Carbon {
       return curLeft;
     }
   };
-
-  function trigger(element: Element, name: string, detail?) : boolean {
-    let e = new CustomEvent(name, {
-      bubbles: true,
-      detail: detail
-    });
-
-    return element.dispatchEvent(e);
-  }
   
   class Observer {
     constructor(public element: Element | Document, public type, public handler, public useCapture = false) {

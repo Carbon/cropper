@@ -33,7 +33,7 @@
   background-color: green;
 }
 
-.cropper .zoomer .nub {
+.cropper .zoomer .handle {
   position: absolute;
   left: 50%;
   height: 20px;

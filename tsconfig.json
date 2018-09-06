@@ -9,6 +9,7 @@
     "lib": [ "dom", "es5", "es6" ]
   },
   "files": [
-    "src/cropper.ts"
+    "src/cropper.ts",
+    "src/reactive.d.ts"
   ]
 }
