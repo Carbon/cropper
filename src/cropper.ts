@@ -8,6 +8,7 @@ module Carbon {
   interface CropperOptions {
     zoomer: Slider;
     scale?: number;
+    overscale: number;
   }
   
   export class Cropper {    
@@ -32,13 +33,16 @@ module Carbon {
     
     constructor(element: HTMLElement, options?) {
       this.element = element;
-            
+      this.options = options || { };
+
       this.viewport = new Viewport(this.element.querySelector('.viewport'));
-      this.content  = new ViewportContent(this.element.querySelector('.content'), this.viewport);
+      this.content  = new ViewportContent(this.element.querySelector('.content'), this.viewport, { 
+        overscale: this.options.overscale || 1
+      });
+
 
       this.viewport.content = this.content;
 
-      this.options = options || { };
 
       this.viewport.element.addEventListener('mousedown', this.startDrag.bind(this), true);
       
@@ -56,11 +60,13 @@ module Carbon {
         }
       }      
       
-      if (this.element.dataset['transform']) {
-        this.setTransform(this.element.dataset['transform']);
+      let transform = this.element.dataset['transform'];
+
+      if (transform) {
+        this.setTransform(transform);
       }
       else {
-        this.viewport.anchorPoint = new Point(0.5, 0.5);      
+        this.viewport.anchorPoint = new Point(0.5, 0.5); // e.g. center
         this.setRelativeScale(this.options.scale || 0);
         this.viewport.centerAt(new Point(0.5, 0.5));     
       }
@@ -151,9 +157,9 @@ module Carbon {
       let minWidth = this.content.calculateMinScale() * this.content.width;
       let maxWidth = this.content.width;
 
-      let dif = maxWidth - minWidth;
+      let diff = maxWidth - minWidth;
 
-      let relativeScale = (pipeline.resize.width - minWidth) / dif;
+      let relativeScale = (pipeline.resize.width - minWidth) / diff;
 
       this.setRelativeScale(relativeScale);
 
@@ -334,7 +340,7 @@ module Carbon {
       if (this.options.start) this.options.start();
     }
 
-    endDrag(e) {
+    endDrag(e: MouseEvent) {
       e.preventDefault();
       e.stopPropagation();
       
@@ -393,7 +399,7 @@ module Carbon {
       this.height = height;
       this.width = width;
       
-      this.content.relativeScale = new LinearScale([this.content.calculateMinScale(), 1]);
+      this.content.relativeScale = new LinearScale([this.content.calculateMinScale(), 1 ]);
     }
 
     setOffset(offset: Point) {
@@ -459,8 +465,11 @@ module Carbon {
     offset: Point;
     width: number;
     height: number;
+
+    overscale = 1;
     
-    constructor(element: HTMLElement, viewport: Viewport) {
+    constructor(element: HTMLElement, viewport: Viewport, options: any) {
+
       this.element = element;
       this.viewport = viewport;
       
@@ -469,7 +478,11 @@ module Carbon {
       
       this.element.style.transformOrigin = '0 0';
 
-      this.relativeScale = new LinearScale([this.calculateMinScale(), 1]); // to the min & max sizes
+      if (options && options.overscale) {
+        this.overscale = options.overscale;
+      }
+
+      this.relativeScale = new LinearScale([this.calculateMinScale(), this.overscale]); // to the min & max sizes
     }
 
     setImage(image: Media) {      
@@ -482,7 +495,7 @@ module Carbon {
       this.element.style.height = image.height + 'px';
       this.element.style.backgroundImage = `url('${image.url}')`;
       
-      this.relativeScale = new LinearScale([this.calculateMinScale(), 1]);
+      this.relativeScale = new LinearScale([this.calculateMinScale(), this.overscale]);
       
       this.setSize(image);
       
@@ -490,7 +503,7 @@ module Carbon {
    	}
 
     // The minimum size for the content to fit entirely in the viewport
-    // May be great than 1 (stretched)
+    // May be > 1 (stretched)
     calculateMinScale(): number {
       let minScale: number;
       let percentW = this.viewport.width / this.width;

@@ -1,16 +1,12 @@
 {
   "name": "cropper",
-  "version": "4.0.0",
+  "version": "4.2.0",
   "main": "lib/cropper.js",
   "author": "Jason Nelson",
   "license": "MIT",
   "files": [
     "assets/cropper.css"
   ],
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/carbon/cropper.git"
-  },
   "bugs": {
     "url": "https://github.com/carbon/cropper/issues"
   },
